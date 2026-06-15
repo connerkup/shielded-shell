@@ -1,0 +1,21 @@
+{
+  "name": "shieldedshell",
+  "version": "0.1.0",
+  "description": "CLI harness for sandboxed agent execution",
+  "type": "module",
+  "bin": {
+    "shieldedshell": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@shieldedshell/core": "*",
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.3"
+  },
+  "license": "MIT"
+}

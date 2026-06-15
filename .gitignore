@@ -1,0 +1,20 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+
+# Rust
+bounded-solvers-rs/target/
+
+# Local sandbox state
+.shieldedshell/
+shield.yaml
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# Env
+.env
+.env.*
