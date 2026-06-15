@@ -1,0 +1,30 @@
+# AgentShield / ShieldedShell example policy
+version: "1.0"
+
+sandbox:
+  workspace_dir: "."
+  allow_network: false
+  allowed_domains: []
+  max_memory_mb: 256
+  cpu_timeout_ms: 300000
+  overlay_enabled: true
+
+invariants:
+  ledger:
+    enabled: false
+    min_balance: 0.0
+  routing:
+    enabled: false
+    allow_sensitive_public: false
+
+auto_heal:
+  max_retry_cycles: 5
+  model: "claude-3-5-sonnet"
+
+paths:
+  blocked_read_globs:
+    - "~/.ssh/**"
+    - "~/.aws/**"
+    - "**/.env"
+  blocked_write_globs:
+    - "**/.git/**"

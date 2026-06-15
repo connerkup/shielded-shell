@@ -1,0 +1,49 @@
+{
+  "name": "@shieldedshell/core",
+  "version": "0.1.0",
+  "description": "Bounded solvers, sandbox, and reconciler core for ShieldedShell",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "prompts",
+    "scripts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm run test"
+  },
+  "dependencies": {
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/connerkup/shielded-shell.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/connerkup/shielded-shell/issues"
+  },
+  "homepage": "https://github.com/connerkup/shielded-shell#readme",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}

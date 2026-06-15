@@ -1,0 +1,30 @@
+{
+  "name": "shielded-shell",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Zero-trust local safety harness for CLI coding agents",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @shieldedshell/core && npm run build -w @shieldedshell/cli",
+    "test": "npm run test -w @shieldedshell/core",
+    "lint": "npm run build",
+    "pack:check": "npm run build && npm pack -w @shieldedshell/core --dry-run && npm pack -w @shieldedshell/cli --dry-run",
+    "publish:npm": "npm run test && npm run build && npm publish -w @shieldedshell/core --access public --tag beta && npm publish -w @shieldedshell/cli --access public --tag beta",
+    "publish:npm:private": "npm run test && npm run build && npm publish -w @shieldedshell/core --access restricted && npm publish -w @shieldedshell/cli --access restricted",
+    "shieldedshell": "node packages/cli/dist/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/connerkup/shielded-shell/issues"
+  },
+  "homepage": "https://github.com/connerkup/shielded-shell#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/connerkup/shielded-shell.git"
+  }
+}

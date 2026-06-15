@@ -1,0 +1,34 @@
+name: Feature request
+description: Suggest an improvement for beta or 1.0
+title: "[feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What decision or workflow are you trying to support?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI / UX
+        - Engine profiles
+        - Sandbox / policy
+        - Dual-agent loop
+        - Benchmarks
+        - Docs
+        - Other
+    validations:
+      required: true

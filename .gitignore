@@ -1,0 +1,28 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+
+# Rust
+bounded-solvers-rs/target/
+
+# Local sandbox state
+.shieldedshell/
+shield.yaml
+*.log
+
+# Dual-agent loop buffers (workspace-local)
+developer_output.json
+auditor_output.json
+shared_context.txt
+auth_service.js
+benchmark/secret_developer_access.txt
+benchmark/secret_auditor_access.txt
+
+# IDE
+.idea/
+.vscode/
+
+# Env
+.env
+.env.*
