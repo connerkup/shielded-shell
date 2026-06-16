@@ -8,7 +8,7 @@
     "website"
   ],
   "scripts": {
-    "build": "npm run build -w @shieldedshell/core && npm run build -w @shieldedshell/cli",
+    "build": "npm run build -w @shieldedshell/core && npm run build -w @shieldedshell/cli && npm run build -w website",
     "test": "npm run test -w @shieldedshell/core",
     "lint": "npm run build",
     "website:dev": "npm run dev -w website",

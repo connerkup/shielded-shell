@@ -22,7 +22,9 @@ Output: `dist/`.
 
 ## Deploy
 
-Static site suitable for Vercel, Netlify, Cloudflare Pages, or GitHub Pages. Set build command to `npm run build` and output directory to `dist`.
+**Cloudflare Pages (production):** connect the repo root, set build command to `npm run build`, output directory to `website/dist`, and Node 22. `wrangler.toml` pins the output dir; root `npm run build` includes the Starlight site.
+
+**Other hosts:** use `npm run website:build` and publish `website/dist`.
 
 From monorepo root:
 
