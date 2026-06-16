@@ -17,6 +17,17 @@
 	padding-block: 2rem;
 }
 
+.hero img {
+	width: 6.5rem;
+	height: 6.5rem;
+	object-fit: contain;
+}
+
+.site-title img {
+	max-height: 2rem;
+	width: auto;
+}
+
 .sl-markdown-content h1 {
 	letter-spacing: -0.02em;
 }
