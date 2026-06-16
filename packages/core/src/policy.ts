@@ -118,21 +118,29 @@ export class PolicyEngine {
     return true;
   }
 
-  buildSandboxEnv(baseEnv: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  buildSandboxEnv(
+    baseEnv: NodeJS.ProcessEnv = process.env,
+    mode: "sandbox" | "agent" = "sandbox",
+  ): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = { ...baseEnv };
     env.SHIELDEDSHELL = "1";
     env.SHIELDEDSHELL_WORKSPACE = this.workspace;
-    if (!this.config.sandbox.allowNetwork) {
+
+    if (mode === "sandbox" && !this.config.sandbox.allowNetwork) {
       env.HTTP_PROXY = "http://127.0.0.1:9";
       env.HTTPS_PROXY = "http://127.0.0.1:9";
       env.NO_PROXY = "localhost,127.0.0.1";
     }
-    const stripPrefixes = ["AWS_", "OPENAI_", "ANTHROPIC_", "GITHUB_TOKEN", "NPM_TOKEN"];
-    for (const key of Object.keys(env)) {
-      if (stripPrefixes.some((prefix) => key.startsWith(prefix))) {
-        delete env[key];
+
+    if (mode === "sandbox") {
+      const stripPrefixes = ["AWS_", "OPENAI_", "ANTHROPIC_", "GITHUB_TOKEN", "NPM_TOKEN"];
+      for (const key of Object.keys(env)) {
+        if (stripPrefixes.some((prefix) => key.startsWith(prefix))) {
+          delete env[key];
+        }
       }
     }
+
     return env;
   }
 

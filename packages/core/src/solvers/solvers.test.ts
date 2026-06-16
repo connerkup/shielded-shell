@@ -76,4 +76,25 @@ describe("PolicyEngine", () => {
     const log = new InterceptLog();
     expect(policy.scanCommand("rm -rf /", log)).toBe(false);
   });
+
+  it("agent env mode keeps network and API keys available", () => {
+    const policy = new PolicyEngine(defaultConfig(), process.cwd());
+    const env = policy.buildSandboxEnv(
+      {
+        OPENAI_API_KEY: "test-key",
+        HTTP_PROXY: "http://corp-proxy:8080",
+      },
+      "agent",
+    );
+    expect(env.HTTP_PROXY).toBe("http://corp-proxy:8080");
+    expect(env.OPENAI_API_KEY).toBe("test-key");
+    expect(env.SHIELDEDSHELL).toBe("1");
+  });
+
+  it("sandbox env mode blocks network via loopback proxy", () => {
+    const policy = new PolicyEngine(defaultConfig(), process.cwd());
+    const env = policy.buildSandboxEnv({ OPENAI_API_KEY: "test-key" }, "sandbox");
+    expect(env.HTTP_PROXY).toBe("http://127.0.0.1:9");
+    expect(env.OPENAI_API_KEY).toBeUndefined();
+  });
 });

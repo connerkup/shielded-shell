@@ -13,6 +13,12 @@ export interface RunCommandOptions {
   configPath?: string;
   useOverlay?: boolean;
   shell?: boolean;
+  /** sandbox = block network/secrets; agent = inherit env for LLM CLI tools */
+  networkPolicy?: "sandbox" | "agent";
+}
+
+function envMode(options: RunCommandOptions): "sandbox" | "agent" {
+  return options.networkPolicy ?? "sandbox";
 }
 
 export interface RunCommandResult {
@@ -52,7 +58,7 @@ export function runCommand(
     execCwd = ensureOverlay(workspace, log).overlay;
   }
 
-  const env = policy.buildSandboxEnv(process.env);
+  const env = policy.buildSandboxEnv(process.env, envMode(options));
   log.audit("Launching sandboxed process");
 
   return new Promise((resolve) => {
@@ -87,7 +93,7 @@ export function runCommandSync(
 
   const result = spawnSync(commandLine, {
     cwd: execCwd,
-    env: policy.buildSandboxEnv(process.env),
+    env: policy.buildSandboxEnv(process.env, envMode(options)),
     shell: true,
     stdio: "inherit",
     timeout: config.sandbox.cpuTimeoutMs,
@@ -123,7 +129,7 @@ export function spawnInteractiveShell(
   return new Promise((resolve) => {
     const child = spawn(shell, shellArgs, {
       cwd: execCwd,
-      env: policy.buildSandboxEnv(process.env),
+      env: policy.buildSandboxEnv(process.env, "sandbox"),
       stdio: "inherit",
     });
     child.on("close", (code, signal) => resolve({ exitCode: code, signal }));

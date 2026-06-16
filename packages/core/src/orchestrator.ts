@@ -102,6 +102,7 @@ export async function orchestrateDualAgentLoop(
       cwd: workspace,
       config: options.config,
       useOverlay: false,
+      networkPolicy: "agent",
     });
     if (devResult.exitCode !== 0) {
       restoreAllWritable(partition);
@@ -123,6 +124,7 @@ export async function orchestrateDualAgentLoop(
       cwd: workspace,
       config: options.config,
       useOverlay: false,
+      networkPolicy: "agent",
     });
     if (auditResult.exitCode !== 0) {
       restoreAllWritable(partition);
