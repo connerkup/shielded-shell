@@ -74,7 +74,7 @@ describe("engines", () => {
     expect(devCommand).toContain("--auto-approve true");
     expect(devCommand).toContain("--json");
     expect(devCommand).toContain("-t 900");
-    expect(devCommand).toContain("type ");
+    expect(devCommand).toMatch(/type |cat /);
     expect(devCommand).toContain("agent_a_prompt.txt");
     expect(auditCommand).not.toContain("--prompt");
   });
