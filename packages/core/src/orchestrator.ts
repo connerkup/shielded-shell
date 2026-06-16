@@ -1,10 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
+import {
+  exposeAuditorSecret,
+  exposeDeveloperSecret,
+  hideBenchmarkSecrets,
+  validatorPath,
+} from "./benchmark-gate.js";
 import type { ShieldConfig } from "./config.js";
+import { appendGovernorInterrupt } from "./context.js";
 import { InterceptLog } from "./intercept.js";
-import { overlayPaths, resetOverlay } from "./overlay.js";
+import { overlayPaths } from "./overlay.js";
 import { reconcile, type ReconcilePaths } from "./reconcile.js";
 import { runCommandSync } from "./runner.js";
+import { applyPhaseLocks, restoreAllWritable, type PartitionTargets } from "./spatial.js";
 
 export interface OrchestrateOptions {
   workspace: string;
@@ -14,6 +22,7 @@ export interface OrchestrateOptions {
   maxIterations?: number;
   benchmark?: string;
   mergeTarget?: string;
+  iterationDelayMs?: number;
 }
 
 function defaultPaths(workspace: string, mergeTarget: string): ReconcilePaths {
@@ -24,7 +33,15 @@ function defaultPaths(workspace: string, mergeTarget: string): ReconcilePaths {
     sharedContext: path.join(workspace, "shared_context.txt"),
     mergeTarget,
     hashHistory: path.join(state, "hash_history.json"),
-    validator: undefined,
+  };
+}
+
+function toPartition(targets: ReconcilePaths): PartitionTargets {
+  return {
+    developerOutput: targets.developerOutput,
+    auditorOutput: targets.auditorOutput,
+    sharedContext: targets.sharedContext,
+    mergeTarget: targets.mergeTarget,
   };
 }
 
@@ -33,7 +50,7 @@ function initBuffers(workspace: string, mergeTarget: string): void {
   if (!fs.existsSync(path.join(workspace, "shared_context.txt"))) {
     fs.writeFileSync(
       path.join(workspace, "shared_context.txt"),
-      "Task: ShieldedShell dual-agent session.\n",
+      "Task: ShieldedShell dual-agent session.\nCurrent status: Initializing workspace. Awaiting Developer draft.\n",
       "utf8",
     );
   }
@@ -48,6 +65,11 @@ function initBuffers(workspace: string, mergeTarget: string): void {
   }
 }
 
+function hasCriticalSuccess(sharedContextPath: string): boolean {
+  if (!fs.existsSync(sharedContextPath)) return false;
+  return fs.readFileSync(sharedContextPath, "utf8").includes("CRITICAL_SUCCESS");
+}
+
 export async function orchestrateDualAgentLoop(
   options: OrchestrateOptions,
 ): Promise<{ success: boolean; iterations: number; reason: string }> {
@@ -56,23 +78,34 @@ export async function orchestrateDualAgentLoop(
   const mergeTarget = path.resolve(options.mergeTarget ?? path.join(workspace, "output.js"));
   const maxIterations = options.maxIterations ?? options.config.autoHeal.maxRetryCycles;
   const paths = defaultPaths(workspace, mergeTarget);
-  if (options.benchmark) {
-    paths.validator = path.join(workspace, "benchmark", options.benchmark, "validate.js");
-  }
+  const partition = toPartition(paths);
+  const iterationDelayMs = options.iterationDelayMs ?? 2000;
 
-  resetOverlay(workspace);
+  hideBenchmarkSecrets(workspace);
   initBuffers(workspace, mergeTarget);
+  restoreAllWritable(partition);
+
+  if (fs.existsSync(paths.hashHistory)) {
+    fs.unlinkSync(paths.hashHistory);
+  }
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
     log.info(`Orchestration iteration ${iteration}/${maxIterations}`);
+
+    applyPhaseLocks("developer", partition);
+    if (options.benchmark) {
+      exposeDeveloperSecret(workspace, options.benchmark);
+    }
 
     log.audit("Developer agent run");
     const devResult = runCommandSync(options.devCommand, {
       cwd: workspace,
       config: options.config,
-      useOverlay: true,
+      useOverlay: false,
     });
     if (devResult.exitCode !== 0) {
+      restoreAllWritable(partition);
+      hideBenchmarkSecrets(workspace);
       return {
         success: false,
         iterations: iteration,
@@ -80,13 +113,20 @@ export async function orchestrateDualAgentLoop(
       };
     }
 
+    applyPhaseLocks("auditor", partition);
+    if (options.benchmark) {
+      exposeAuditorSecret(workspace, options.benchmark);
+    }
+
     log.audit("Architect agent run");
     const auditResult = runCommandSync(options.auditCommand, {
       cwd: workspace,
       config: options.config,
-      useOverlay: true,
+      useOverlay: false,
     });
     if (auditResult.exitCode !== 0) {
+      restoreAllWritable(partition);
+      hideBenchmarkSecrets(workspace);
       return {
         success: false,
         iterations: iteration,
@@ -94,14 +134,24 @@ export async function orchestrateDualAgentLoop(
       };
     }
 
+    applyPhaseLocks("reconcile", partition);
+    if (options.benchmark) {
+      hideBenchmarkSecrets(workspace);
+    }
+
+    log.audit("Reconciler gate");
     const result = reconcile({
       workspace,
       paths,
       config: options.config,
       benchmark: options.benchmark,
+      overlayMerge: false,
     });
 
-    if (result.success) {
+    restoreAllWritable(partition);
+
+    if (result.success || hasCriticalSuccess(paths.sharedContext)) {
+      hideBenchmarkSecrets(workspace);
       return { success: true, iterations: iteration, reason: result.reason };
     }
 
@@ -111,11 +161,21 @@ export async function orchestrateDualAgentLoop(
       action: "warn",
       detail: "retrying developer",
     });
+
+    if (iteration < maxIterations) {
+      await new Promise((resolve) => setTimeout(resolve, iterationDelayMs));
+    }
   }
+
+  appendGovernorInterrupt(paths.sharedContext, maxIterations);
+  hideBenchmarkSecrets(workspace);
+  restoreAllWritable(partition);
 
   return {
     success: false,
     iterations: maxIterations,
-    reason: "Max iterations exceeded without CRITICAL_SUCCESS",
+    reason: "INTERRUPT_REQUIRED",
   };
 }
+
+export { validatorPath };

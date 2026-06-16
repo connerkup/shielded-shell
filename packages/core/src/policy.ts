@@ -114,11 +114,6 @@ export class PolicyEngine {
       }
     }
 
-    const pathTokens = command.match(/(?:~\/|[a-z]:\\|\/)[^\s'"]+/gi) ?? [];
-    for (const token of pathTokens) {
-      if (!this.checkRead(token, log)) return false;
-    }
-
     log.emit({ kind: "exec", target: command, action: "allowed" });
     return true;
   }

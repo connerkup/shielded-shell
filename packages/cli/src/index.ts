@@ -6,8 +6,11 @@ import {
   analyzeLedgerSafety,
   evaluateApiGatewayPolicy,
   findConfigPath,
+  initLoopWorkspace,
   loadConfig,
   orchestrateDualAgentLoop,
+  reconcile,
+  runAgentLoop,
   runCommand,
   spawnInteractiveShell,
   writeDefaultConfig,
@@ -138,7 +141,7 @@ program
   .option("-d, --dir <path>", "Workspace directory", process.cwd())
   .option("-c, --config <path>", "Path to shield.yaml")
   .option("--benchmark <name>", "Optional benchmark folder name")
-  .option("--target <path>", "Merge target file", "output.js")
+  .option("--target <path>", "Merge target file", "auth_service.js")
   .action(async (opts) => {
     const config = loadConfig(opts.config, opts.dir);
     const result = await orchestrateDualAgentLoop({
@@ -154,6 +157,63 @@ program
       process.exit(1);
     }
     console.log(`Orchestration succeeded in ${result.iterations} iteration(s)`);
+  });
+
+program
+  .command("reconcile")
+  .description("Run the reconciler gate on current developer/auditor buffers")
+  .option("-d, --dir <path>", "Workspace directory", process.cwd())
+  .option("-c, --config <path>", "Path to shield.yaml")
+  .option("--benchmark <name>", "Optional benchmark folder name")
+  .option("--target <path>", "Merge target file", "auth_service.js")
+  .action((opts) => {
+    const config = loadConfig(opts.config, opts.dir);
+    const workspace = path.resolve(opts.dir);
+    const mergeTarget = path.resolve(workspace, opts.target);
+    const result = reconcile({
+      workspace,
+      config,
+      benchmark: opts.benchmark,
+      overlayMerge: false,
+      paths: {
+        developerOutput: path.join(workspace, "developer_output.json"),
+        auditorOutput: path.join(workspace, "auditor_output.json"),
+        sharedContext: path.join(workspace, "shared_context.txt"),
+        mergeTarget,
+        hashHistory: path.join(workspace, ".shieldedshell", "state", "hash_history.json"),
+      },
+    });
+    if (!result.success) {
+      console.error(`Reconcile failed: ${result.reason}`);
+      process.exit(1);
+    }
+    console.log(`Reconcile succeeded: ${result.reason}`);
+  });
+
+program
+  .command("loop")
+  .description("Run dual-agent loop with engine dispatch and prompt templates")
+  .option("-d, --dir <path>", "Workspace directory", process.cwd())
+  .option("-c, --config <path>", "Path to shield.yaml")
+  .requiredOption("-e, --engine <name>", "Agent engine: cursor, aider, openclaw, cline")
+  .option("--benchmark <name>", "Benchmark folder under ./benchmark")
+  .option("--target <path>", "Merge target file", "auth_service.js")
+  .action(async (opts) => {
+    const config = loadConfig(opts.config, opts.dir);
+    const workspace = path.resolve(opts.dir);
+    initLoopWorkspace(workspace);
+    const result = await runAgentLoop({
+      workspace,
+      config,
+      engine: opts.engine,
+      benchmark: opts.benchmark,
+      mergeTarget: path.resolve(workspace, opts.target),
+    });
+    if (!result.success) {
+      console.error(`Loop failed: ${result.reason}`);
+      process.exit(1);
+    }
+    console.log(`Loop succeeded in ${result.iterations} iteration(s)`);
   });
 
 program

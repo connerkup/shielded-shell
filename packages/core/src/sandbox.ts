@@ -50,21 +50,37 @@ export function runSecureValidator(
 ): { ok: boolean; error?: string } {
   const token = crypto.randomBytes(32).toString("hex");
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "shieldedshell-validate-"));
-  const harnessPath = path.join(tempDir, "harness.mjs");
+  const harnessPath = path.join(tempDir, "harness.cjs");
   const harnessSource = `
-import fs from 'node:fs';
-import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+const fs = require('fs');
+const path = require('path');
+const cp = require('child_process');
 
-const token = fs.readFileSync(0, 'utf8').trim();
-const validatorPath = process.argv[2];
-const codePath = process.argv[3];
-Object.freeze(Object.prototype);
-const mod = await import(pathToFileURL(path.resolve(validatorPath)).href);
-const validate = mod.default ?? mod.validate ?? mod;
-if (typeof validate !== 'function') throw new Error('Validator must export a function');
-await validate(codePath);
-process.stdout.write(token);
+(function() {
+  try {
+    const token = fs.readFileSync(0, 'utf8').trim();
+    const validator = process.argv[2];
+    const tempFile = process.argv[3];
+    if (!validator || !tempFile || !token) {
+      throw new Error('Missing arguments or token in secure validator harness');
+    }
+
+    Object.freeze(Object.prototype);
+    Object.freeze(fs);
+    Object.freeze(path);
+    Object.freeze(process);
+    Object.freeze(cp);
+    Object.freeze(require('module'));
+
+    const validate = require(path.resolve(validator));
+    validate(tempFile);
+    process.stdout.write(token);
+    process.exit(0);
+  } catch (err) {
+    console.error(err.message || err);
+    process.exit(1);
+  }
+})();
 `;
   fs.writeFileSync(harnessPath, harnessSource, "utf8");
 

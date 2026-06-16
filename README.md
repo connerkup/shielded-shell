@@ -27,8 +27,9 @@ shieldedshell run "echo safe"
 | `shieldedshell run <cmd...>` | Run a command in a sandboxed workspace with intercept logging |
 | `shieldedshell shell` | Interactive shell bound to workspace + overlay |
 | `shieldedshell verify --type ledger\|routing` | Static interval / Datalog safety checks |
-| `shieldedshell orchestrate --dev ... --audit ...` | Dual-agent developer/architect loop |
-| `shieldedshell doctor` | Print config and environment diagnostics |
+| `shieldedshell orchestrate --dev ... --audit ...` | Dual-agent loop with explicit commands |
+| `shieldedshell loop --engine cursor [--benchmark NAME]` | Dual-agent loop with prompt templates + engine dispatch |
+| `shieldedshell reconcile` | Run reconciler gate on current buffers |
 
 ## Example
 
@@ -89,14 +90,23 @@ cargo build --release
 
 ## Dual-agent orchestration
 
+Explicit commands:
+
 ```bash
 shieldedshell orchestrate \
   --dev "node ./agents/dev.mjs" \
   --audit "node ./agents/audit.mjs" \
+  --benchmark 02_ledger_consensus \
   --dir ./my-project
 ```
 
-Agents write structured JSON to `developer_output.json` and `auditor_output.json`. The reconciler merges on `CRITICAL_SUCCESS`.
+Engine + prompts (matches legacy `orchestrator.ps1` flow):
+
+```bash
+shieldedshell loop --engine cursor --benchmark 02_ledger_consensus --dir ./my-project
+```
+
+Supported engines: `cursor`, `aider`, `openclaw`, `cline`. Prompts live in `prompts/` or `benchmark/<name>/agent_*_prompt.txt`.
 
 ## Documentation
 

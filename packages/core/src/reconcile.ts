@@ -2,12 +2,13 @@ import { execSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { validatorPath } from "./benchmark-gate.js";
+import { consolidateSharedContext } from "./context.js";
 import type { ShieldConfig } from "./config.js";
 import { InterceptLog } from "./intercept.js";
-import { listOverlayChanges, mergeOverlay } from "./overlay.js";
+import { mergeOverlay } from "./overlay.js";
 import { runSecureValidator } from "./sandbox.js";
-import { analyzeLedgerSafety } from "./solvers/interval.js";
-import { evaluateApiGatewayPolicy } from "./solvers/datalog.js";
+import { runBenchmarkStaticVerification } from "./static-verify.js";
 
 export interface ReconcilePaths {
   developerOutput: string;
@@ -15,7 +16,6 @@ export interface ReconcilePaths {
   sharedContext: string;
   mergeTarget: string;
   hashHistory: string;
-  validator?: string;
 }
 
 export interface ReconcileOptions {
@@ -23,6 +23,7 @@ export interface ReconcileOptions {
   paths: ReconcilePaths;
   config: ShieldConfig;
   benchmark?: string;
+  overlayMerge?: boolean;
 }
 
 export interface ReconcileResult {
@@ -47,24 +48,23 @@ function parseJSONOutput(text: string): Record<string, unknown> {
   }
 }
 
-function consolidateSharedContext(sharedContextPath: string, feedback: string): void {
-  if (!fs.existsSync(sharedContextPath)) {
-    fs.writeFileSync(sharedContextPath, "Task initialized by ShieldedShell.\n", "utf8");
+function buildAuditFeedback(auditObj: Record<string, unknown>, auditText: string): string {
+  let feedback = "";
+  const killCriteria = auditObj.kill_criteria;
+  if (Array.isArray(killCriteria) && killCriteria.length > 0) {
+    feedback += `Kill Criteria:\n${killCriteria.map((item) => `- ${String(item)}`).join("\n")}\n\n`;
   }
-  const header = `=== [Reconciler Log] Turn Failed at ${new Date().toISOString()} ===`;
-  fs.appendFileSync(sharedContextPath, `\n${header}\n${feedback}\n`, "utf8");
+  feedback +=
+    (typeof auditObj.feedback_for_developer === "string" && auditObj.feedback_for_developer) ||
+    auditText.trim() ||
+    "No feedback provided by Auditor.";
+  return feedback;
 }
 
 export function reconcile(options: ReconcileOptions): ReconcileResult {
   const log = new InterceptLog();
-  const {
-    developerOutput,
-    auditorOutput,
-    sharedContext,
-    mergeTarget,
-    hashHistory,
-    validator,
-  } = options.paths;
+  const { developerOutput, auditorOutput, sharedContext, mergeTarget, hashHistory } =
+    options.paths;
 
   const devText = fs.existsSync(developerOutput) ? fs.readFileSync(developerOutput, "utf8") : "";
   const auditText = fs.existsSync(auditorOutput) ? fs.readFileSync(auditorOutput, "utf8") : "";
@@ -93,21 +93,26 @@ export function reconcile(options: ReconcileOptions): ReconcileResult {
   }
 
   if (auditObj.status !== "PASSED") {
-    const feedback =
-      (auditObj.feedback_for_developer as string) ||
-      auditText.trim() ||
-      "Auditor did not approve changes.";
-    consolidateSharedContext(sharedContext, feedback);
+    consolidateSharedContext(
+      sharedContext,
+      buildAuditFeedback(auditObj, auditText),
+      "audit_rejected",
+    );
     return { success: false, reason: "Audit not passed" };
   }
 
   let extractedCode = typeof devObj.code === "string" ? devObj.code.trim() : "";
   if (!extractedCode) {
-    const codeMatch = /```(?:javascript|js|typescript|ts)?\r?\n([\s\S]*?)```/i.exec(devText);
-    extractedCode = codeMatch?.[1]?.trim() ?? devText.trim();
+    const blocks: string[] = [];
+    const codeRegex = /```(?:javascript|js)\r?\n([\s\S]*?)```/gi;
+    let match: RegExpExecArray | null;
+    while ((match = codeRegex.exec(devText)) !== null) {
+      blocks.push(match[1]);
+    }
+    extractedCode = blocks.join("\n").trim() || devText.trim();
   }
   if (!extractedCode) {
-    consolidateSharedContext(sharedContext, "Developer output contained no code.");
+    consolidateSharedContext(sharedContext, "Developer output was empty or contained no code.");
     return { success: false, reason: "No code in developer output" };
   }
 
@@ -117,7 +122,11 @@ export function reconcile(options: ReconcileOptions): ReconcileResult {
     history = JSON.parse(fs.readFileSync(hashHistory, "utf8")) as string[];
   }
   if (history.includes(codeHash)) {
-    consolidateSharedContext(sharedContext, "Regressive loop detected (identical code hash).");
+    consolidateSharedContext(
+      sharedContext,
+      "The Developer agent fell into a regressive loop, regenerating an identical file state. Stopping execution to prevent credit burn.",
+      "regressive_loop",
+    );
     return { success: false, reason: "Regressive loop detected" };
   }
   history.push(codeHash);
@@ -128,70 +137,63 @@ export function reconcile(options: ReconcileOptions): ReconcileResult {
   const tempFile = path.join(options.workspace, ".shieldedshell", "state", "temp_check.js");
   fs.mkdirSync(path.dirname(tempFile), { recursive: true });
   fs.writeFileSync(tempFile, extractedCode, "utf8");
+
   try {
     execSync(`node --check "${tempFile}"`, { stdio: "pipe" });
     log.audit("Syntax check passed");
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    consolidateSharedContext(sharedContext, `Syntax error:\n${message}`);
+    const stderr =
+      err && typeof err === "object" && "stderr" in err
+        ? String((err as { stderr?: Buffer }).stderr ?? "")
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    consolidateSharedContext(sharedContext, `Syntax Error:\n${stderr}`);
+    if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
     return { success: false, reason: "Syntax check failed" };
   }
 
-  if (options.config.invariants.ledger.enabled) {
-    const ledgerPath = path.join(options.workspace, ".shieldedshell", "audit", "ledger.json");
-    const transfersPath = path.join(options.workspace, ".shieldedshell", "audit", "transfers.json");
-    if (fs.existsSync(ledgerPath) && fs.existsSync(transfersPath)) {
-      const balances = JSON.parse(fs.readFileSync(ledgerPath, "utf8")) as Record<
-        string,
-        number | [number, number]
-      >;
-      const transfers = JSON.parse(fs.readFileSync(transfersPath, "utf8"));
-      const audit = analyzeLedgerSafety(balances, transfers);
-      if (!audit.safe) {
-        consolidateSharedContext(
-          sharedContext,
-          `Ledger invariant failed for ${audit.violatingAccount} at step ${audit.violatingStep}`,
-        );
-        return { success: false, reason: "Ledger invariant failed" };
-      }
-      log.audit("Ledger static audit passed");
+  if (options.benchmark) {
+    const staticResult = runBenchmarkStaticVerification(options.workspace, options.benchmark);
+    if (staticResult.verifiedByRust) {
+      log.audit("Static audit: Rust solver verified");
+    } else if (staticResult.ok) {
+      log.audit("Static audit: JS solver verified");
     }
-  }
+    if (staticResult.poisonDetected) {
+      log.audit("Static audit: poison task detected (expected for benchmark)");
+    }
+    if (!staticResult.ok) {
+      consolidateSharedContext(
+        sharedContext,
+        `Static Solver Verification Failure:\n${staticResult.error ?? "Unknown static failure"}`,
+      );
+      if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+      return { success: false, reason: staticResult.error ?? "Static verification failed" };
+    }
 
-  if (options.config.invariants.routing.enabled) {
-    const policiesPath = path.join(options.workspace, ".shieldedshell", "audit", "policies.json");
-    const routesPath = path.join(options.workspace, ".shieldedshell", "audit", "routes.json");
-    if (fs.existsSync(policiesPath) && fs.existsSync(routesPath)) {
-      const policies = JSON.parse(fs.readFileSync(policiesPath, "utf8")) as Record<string, string>;
-      const routes = JSON.parse(fs.readFileSync(routesPath, "utf8")) as Record<string, string>;
-      const result = evaluateApiGatewayPolicy(policies, routes);
-      if (!result.safe) {
-        consolidateSharedContext(
-          sharedContext,
-          `Routing policy violation: ${result.violations.join(", ")}`,
-        );
-        return { success: false, reason: "Routing policy violation" };
+    const validator = validatorPath(options.workspace, options.benchmark);
+    if (fs.existsSync(validator)) {
+      log.audit(`Running secure validator: ${validator}`);
+      const validation = runSecureValidator(validator, tempFile);
+      if (!validation.ok) {
+        consolidateSharedContext(sharedContext, `Validation Failure:\n${validation.error}`);
+        if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+        return { success: false, reason: validation.error ?? "Validator failed" };
       }
-      log.audit("Routing static audit passed");
+      log.audit("Secure validator passed");
     }
-  }
-
-  if (options.benchmark && validator && fs.existsSync(validator)) {
-    const validation = runSecureValidator(validator, tempFile);
-    if (!validation.ok) {
-      consolidateSharedContext(sharedContext, `Validator failed: ${validation.error}`);
-      return { success: false, reason: validation.error ?? "Validator failed" };
-    }
-    log.audit("Secure validator passed");
   }
 
   fs.writeFileSync(mergeTarget, extractedCode, "utf8");
-  const overlayChanges = listOverlayChanges(options.workspace);
-  const mergedFiles = mergeOverlay(options.workspace, log);
+  let mergedFiles = 0;
+  if (options.overlayMerge) {
+    mergedFiles = mergeOverlay(options.workspace, log);
+  }
 
   fs.appendFileSync(
     sharedContext,
-    `\n=== [Reconciler Log] Turn Succeeded at ${new Date().toISOString()} ===\nCRITICAL_SUCCESS\nOverlay changes: ${overlayChanges.length}, merged: ${mergedFiles}\n`,
+    `\n=== [Reconciler Log] Turn Succeeded at ${new Date().toISOString()} ===\nRelease merged to ${path.basename(mergeTarget)} successfully.\nCRITICAL_SUCCESS\n`,
   );
 
   if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);

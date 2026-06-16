@@ -36,3 +36,26 @@ export type { ReconcileOptions, ReconcileResult, ReconcilePaths } from "./reconc
 
 export { orchestrateDualAgentLoop } from "./orchestrator.js";
 export type { OrchestrateOptions } from "./orchestrator.js";
+
+export { applyPhaseLocks, restoreAllWritable, setWriteAccess } from "./spatial.js";
+export type { LoopPhase, PartitionTargets } from "./spatial.js";
+
+export {
+  exposeDeveloperSecret,
+  exposeAuditorSecret,
+  hideBenchmarkSecrets,
+  validatorPath,
+  benchmarkDir,
+} from "./benchmark-gate.js";
+
+export { consolidateSharedContext, appendGovernorInterrupt } from "./context.js";
+export type { ConsolidationKind } from "./context.js";
+
+export { runBenchmarkStaticVerification } from "./static-verify.js";
+export type { StaticVerifyResult } from "./static-verify.js";
+
+export { buildEngineCommand, buildLoopCommands, resolvePromptPaths, packageRoot } from "./engines.js";
+export type { AgentEngine, PromptPaths } from "./engines.js";
+
+export { runAgentLoop, initLoopWorkspace } from "./loop.js";
+export type { LoopOptions } from "./loop.js";
