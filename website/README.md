@@ -22,7 +22,7 @@ Output: `dist/`.
 
 ## Deploy
 
-**Cloudflare Pages (production):** connect the repo root, set build command to `npm run build`, output directory to `website/dist`, and Node 22. `wrangler.toml` pins the output dir; root `npm run build` includes the Starlight site.
+**Cloudflare Pages (production):** connect the repo root. Cloudflare sets `CF_PAGES=1`, so root `npm run build` builds only the Starlight site into `website/dist`. Set output directory to `website/dist` and Node 22. `wrangler.toml` pins the output path.
 
 **Other hosts:** use `npm run website:build` and publish `website/dist`.
 
