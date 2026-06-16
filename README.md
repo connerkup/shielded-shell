@@ -1,10 +1,41 @@
-# ShieldedShell (shieldedshell.com)
+# ShieldedShell
 
-Zero-trust local safety harness and multi-agent consensus orchestrator for CLI coding agents (Claude Code, Cursor CLI, Aider, Cline, and custom loops).
+[![npm cli](https://img.shields.io/npm/v/@shieldedshell/cli?label=cli)](https://www.npmjs.com/package/@shieldedshell/cli)
+[![npm core](https://img.shields.io/npm/v/@shieldedshell/core?label=core)](https://www.npmjs.com/package/@shieldedshell/core)
+[![CI](https://github.com/connerkup/shielded-shell/actions/workflows/ci.yml/badge.svg)](https://github.com/connerkup/shielded-shell/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/node/v/@shieldedshell/cli)](https://www.npmjs.com/package/@shieldedshell/cli)
 
-## Quick start
+Zero-trust local safety harness and multi-agent consensus orchestrator for CLI coding agents (Claude Code, Cursor, Cline, Aider, OpenHands, OpenCode, Copilot, and more).
+
+**Status: public beta (0.1.0)** — APIs and CLI flags may change before 1.0. Feedback welcome via [GitHub Issues](https://github.com/connerkup/shielded-shell/issues).
+
+Website: [shieldedshell.com](https://shieldedshell.com) (coming soon)
+
+## Install (recommended)
 
 ```bash
+npm install -g @shieldedshell/cli@beta
+shieldedshell init
+shieldedshell doctor
+shieldedshell run node -e "console.log('hello from sandbox')"
+```
+
+Library only:
+
+```bash
+npm install @shieldedshell/core
+```
+
+Packages: [@shieldedshell/cli](https://www.npmjs.com/package/@shieldedshell/cli) · [@shieldedshell/core](https://www.npmjs.com/package/@shieldedshell/core)
+
+## Quick start (from source)
+
+For development or contributing:
+
+```bash
+git clone https://github.com/connerkup/shielded-shell.git
+cd shielded-shell
 npm install
 npm run build
 npm run shieldedshell -- init
@@ -12,37 +43,29 @@ npm run shieldedshell -- doctor
 npm run shieldedshell -- run node -e "console.log('hello from sandbox')"
 ```
 
-Install globally after build:
+Link locally instead of npm global install:
 
 ```bash
-npm link
-shieldedshell run "echo safe"
-```
-
-### npm publish (team test)
-
-Org **`@shieldedshell`** exists and you are owner (`connerkup`). Scoped packages default to **private** (`restricted`), which requires **paid private packages on the org**, not just billing on your personal account. If you see:
-
-```text
-E402 Payment Required - You must sign up for private packages
-```
-
-either enable **npm Teams billing on the org** at [npmjs.com/settings/shieldedshell/billing](https://www.npmjs.com/settings/shieldedshell/billing), or publish a **public scoped beta** (free; package name is still `@shieldedshell/*`, just installable without auth):
-
-```bash
-npm run publish:npm
-```
-
-That publishes with `--access public --tag beta`. Install on a test machine:
-
-```bash
-npm install -g @shieldedshell/cli@beta
+npm link -w @shieldedshell/cli
 shieldedshell doctor
 ```
 
-When org private billing is active, use `npm run publish:npm:private` instead.
+## Beta test: dual-agent loop
 
-Dry-run tarball contents before first publish: `npm run pack:check`.
+Copy a benchmark into your project (fixtures are in the repo, not published on npm):
+
+```bash
+git clone https://github.com/connerkup/shielded-shell.git
+cd shielded-shell
+cp -r benchmark/02_ledger_consensus /path/to/your-project/benchmark/
+cd /path/to/your-project
+shieldedshell init
+shieldedshell loop --engine cline --benchmark 02_ledger_consensus --dir .
+```
+
+On Windows PowerShell, use `Copy-Item -Recurse` instead of `cp -r`. Install at least one [supported engine](#supported-engines) and confirm with `shieldedshell doctor`.
+
+Report issues: [bug report template](https://github.com/connerkup/shielded-shell/issues/new?template=bug_report.yml).
 
 ## Commands
 
@@ -75,7 +98,9 @@ Typical intercept output:
 shielded-shell/
 ├── packages/
 │   ├── core/          @shieldedshell/core — solvers, policy, overlay, reconcile
-│   └── cli/           shieldedshell CLI
+│   └── cli/           @shieldedshell/cli — shieldedshell CLI
+├── benchmark/         Loop fixtures (copy into your workspace)
+├── prompts/           Default agent prompts (also bundled in core on npm)
 ├── bounded-solvers-rs/ Rust reference solvers (optional fast path)
 ├── bounded_solvers.js  Legacy JS solvers (reference)
 ├── docs/               Architecture and product specs
@@ -138,6 +163,8 @@ shieldedshell loop --engine copilot --benchmark 02_ledger_consensus --dir ./my-p
 ```
 
 Supported engines: `claude`, `cline`, `aider`, `openhands`, `openhands-sdk`, `opencode`, `antigravity`, `copilot`, `cursor`, `openclaw`. Prompts live in `prompts/` or `benchmark/<name>/agent_*_prompt.txt`.
+
+<a id="supported-engines"></a>
 
 **Adding or tuning engines:** loop dispatch is data-driven in `packages/core/src/engine-profiles.ts`. Each profile declares the binary, how the prompt is delivered (`pipe-file`, `inline-prompt`, or `script`), headless/auto-approve flags, workspace binding, and optional phase file attachments. The shared `LOOP_TOOL_HINT` and 15-minute agent timeout apply to all engines — no per-engine TypeScript patches required for new CLIs that fit those patterns.
 
@@ -255,19 +282,25 @@ Uses programmatic mode (`-p`) with `--allow-all-tools` and `--add-dir` bound to 
 
 ## Documentation
 
+- [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 - Product MVP: `docs/mvp_product_strategy.md`
 - Terminal virtualization target: `docs/shieldedshell_architecture.md`
 - npm/API patterns: `docs/npm_integration_guide.md`
 - Dual-agent loop: `docs/dual_agent_automator.md`
 - Productization spec: `docs/PRODUCTIZATION_SPEC.md`
+- Maintainer releases: `docs/RELEASING.md`
 
 ## Development
 
 ```bash
+npm install
 npm test
 npm run build
+npm run pack:check   # dry-run npm tarballs before publish
 ```
+
+Pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md). CI runs tests on Node 20/22 (Linux) and Node 22 (Windows).
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

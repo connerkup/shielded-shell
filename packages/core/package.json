@@ -38,6 +38,10 @@
     "url": "https://github.com/connerkup/shielded-shell.git",
     "directory": "packages/core"
   },
+  "bugs": {
+    "url": "https://github.com/connerkup/shielded-shell/issues"
+  },
+  "homepage": "https://github.com/connerkup/shielded-shell#readme",
   "license": "MIT",
   "engines": {
     "node": ">=20"

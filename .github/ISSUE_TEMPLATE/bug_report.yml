@@ -1,0 +1,49 @@
+name: Bug report
+description: Something broke in the CLI, sandbox, or loop
+title: "[bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing the beta. Include `shieldedshell doctor` output if you can.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Expected vs actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. npm install -g @shieldedshell/cli@beta
+        2. shieldedshell loop --engine cline ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: shieldedshell version
+      placeholder: output of `shieldedshell --version`
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: e.g. Windows 11, Node 22, engine cline
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / doctor output
+      render: shell
