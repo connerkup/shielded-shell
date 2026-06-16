@@ -11,9 +11,15 @@
       "import": "./dist/index.js"
     }
   },
+  "files": [
+    "dist",
+    "prompts",
+    "scripts"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm run test"
   },
   "dependencies": {
     "yaml": "^2.8.0"
@@ -23,5 +29,17 @@
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   },
-  "license": "MIT"
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/connerkup/shielded-shell.git",
+    "directory": "packages/core"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
 }

@@ -74,7 +74,8 @@ export function checkEngineHealth(engine: AgentEngine): EngineHealth {
 }
 
 export function packageRoot(): string {
-  return path.resolve(import.meta.dirname, "..", "..", "..");
+  // Package root: prompts/ and scripts/ ship beside dist/ in @shieldedshell/core.
+  return path.resolve(import.meta.dirname, "..");
 }
 
 export function resolvePromptPaths(workspace: string, benchmark?: string): PromptPaths {

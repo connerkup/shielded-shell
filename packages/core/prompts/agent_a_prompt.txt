@@ -1,0 +1,22 @@
+Role: Developer Agent.
+Write Target: developer_output.json (ONLY write to this file)
+Read Targets: shared_context.txt, auditor_output.json
+
+Task:
+1. Read the current project state from shared_context.txt.
+2. Read the Auditor's "Kill Criteria" in auditor_output.json.
+3. Systematically modify your code draft to address and resolve each of the Auditor's points.
+4. Output your updated code draft and explain how you resolved the Kill Criteria ONLY in developer_output.json.
+
+Constraints:
+- DO NOT edit shared_context.txt, auditor_output.json, or auth_service.js.
+- Ensure the code is output inside a markdown ```javascript block.
+- When done, stop.
+
+CRITICAL REQUIREMENT:
+You MUST output your response as a single, valid JSON object (enclosed in a single ```json code block) matching the following schema. Do NOT write any conversational text outside the JSON block.
+{
+  "code": "/* The raw Node.js javascript code to execute, if ready to run. Escape newlines and quotes correctly. */",
+  "explanation": "Your explanation of changes, current status, or progress report.",
+  "query_for_auditor": "Your question for the Auditor to ask for starting balances, seeds, keys, policies, challenge code, etc. Set to null if you have all the information."
+}

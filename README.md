@@ -19,6 +19,26 @@ npm link
 shieldedshell run "echo safe"
 ```
 
+### Private npm install (team test)
+
+Logged-in publish (npm account `connerkup` or your org):
+
+1. Create the **`@shieldedshell` npm org** once at [npmjs.com/org/create](https://www.npmjs.com/org/create) (required for scoped packages). Private scoped packages need a paid npm plan (`restricted` access); for a public beta use `--access public` and tag `beta` instead.
+2. From the repo root:
+
+```bash
+npm run publish:npm
+```
+
+3. Install on a test machine:
+
+```bash
+npm install -g @shieldedshell/cli
+shieldedshell doctor
+```
+
+Dry-run tarball contents before first publish: `npm run pack:check`.
+
 ## Commands
 
 | Command | Purpose |
