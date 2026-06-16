@@ -4,17 +4,21 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   analyzeLedgerSafety,
+  engineBinaryName,
   evaluateApiGatewayPolicy,
   findConfigPath,
   initLoopWorkspace,
   loadConfig,
   orchestrateDualAgentLoop,
+  parseAgentEngine,
   reconcile,
   runAgentLoop,
   runCommand,
   spawnInteractiveShell,
+  SUPPORTED_ENGINES,
   writeDefaultConfig,
 } from "@shieldedshell/core";
+import { spawnSync } from "node:child_process";
 
 const program = new Command();
 
@@ -195,17 +199,27 @@ program
   .description("Run dual-agent loop with engine dispatch and prompt templates")
   .option("-d, --dir <path>", "Workspace directory", process.cwd())
   .option("-c, --config <path>", "Path to shield.yaml")
-  .requiredOption("-e, --engine <name>", "Agent engine: cursor, aider, openclaw, cline")
+  .requiredOption(
+    "-e, --engine <name>",
+    "Agent engine: claude, cline, aider, openhands, openhands-sdk, opencode, antigravity, copilot, cursor, openclaw",
+  )
   .option("--benchmark <name>", "Benchmark folder under ./benchmark")
   .option("--target <path>", "Merge target file", "auth_service.js")
   .action(async (opts) => {
     const config = loadConfig(opts.config, opts.dir);
     const workspace = path.resolve(opts.dir);
+    let engine;
+    try {
+      engine = parseAgentEngine(opts.engine);
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
     initLoopWorkspace(workspace);
     const result = await runAgentLoop({
       workspace,
       config,
-      engine: opts.engine,
+      engine,
       benchmark: opts.benchmark,
       mergeTarget: path.resolve(workspace, opts.target),
     });
@@ -226,6 +240,14 @@ program
     console.log(`Platform: ${process.platform}`);
     console.log(`Workspace: ${path.resolve(opts.dir)}`);
     console.log(`Config: ${configPath ?? "(defaults only)"}`);
+    console.log(`Supported engines: ${SUPPORTED_ENGINES.join(", ")}`);
+    for (const engine of SUPPORTED_ENGINES) {
+      const binary = engineBinaryName(engine);
+      const lookupCmd = process.platform === "win32" ? "where" : "which";
+      const lookup = spawnSync(lookupCmd, [binary], { encoding: "utf8" });
+      const status = lookup.status === 0 ? "found" : "not on PATH";
+      console.log(`  ${engine}: ${binary} (${status})`);
+    }
     if (configPath) {
       console.log(JSON.stringify(loadConfig(configPath, opts.dir), null, 2));
     }

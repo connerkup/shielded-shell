@@ -191,9 +191,9 @@ If you want to move away from proprietary Cursor CLI endpoints, the [orchestrato
 | Agent CLI | Primary Strength | Swapping Method |
 | :--- | :--- | :--- |
 | **OpenClaw** | Local gateway, OpenAI compatibility, planning layers | Run `openclaw agent --message "$(cat prompt.txt)" --json` |
-| **Aider** | Excellent git-aware diff generation and auto-testing | Run `aider --message "$(cat prompt.txt)" --yes` |
+| **Aider** | Excellent git-aware diff generation and auto-testing | Run `aider --file developer_output.json --read shared_context.txt --message "$(cat prompt.txt)" --yes-always --no-auto-commits --no-git` |
 | **Hermes Agent** | Nous Research persistent memory model | Run `hermes --prompt "$(cat prompt.txt)" --non-interactive` |
-| **Cline CLI** | Deep MCP integration and Plan/Act mode | Run `cline --prompt "$(cat prompt.txt)"` |
+| **Cline CLI** | Deep MCP integration and Plan/Act mode | Run `cline -c ./workspace --auto-approve true -t 900 "$(cat prompt.txt)"` |
 
 ### 2. How to Swap in the Orchestrator
 To swap the execution engine, edit [orchestrator.sh](file:///C:/code/projects/my-agent-loop/orchestrator.sh) and change the execution command inside the loops:
@@ -204,7 +204,7 @@ To swap the execution engine, edit [orchestrator.sh](file:///C:/code/projects/my
 # cursor-agent.cmd -p --trust -f "$(cat agent_a_prompt.txt)"
 
 # Swapped:
-aider --message "$(cat agent_a_prompt.txt)" --yes
+aider --file developer_output.json --read shared_context.txt --message "$(cat agent_a_prompt.txt)" --yes-always --no-auto-commits --no-git
 ```
 
 This model-agnostic structure allows you to transition your entire sandbox to run on local models (e.g. via Ollama) or customizable agent nodes without changing the outer coordination logic.

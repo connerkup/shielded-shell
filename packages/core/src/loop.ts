@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { AgentEngine } from "./engines.js";
-import { buildLoopCommands } from "./engines.js";
+import { buildLoopCommands, parseAgentEngine } from "./engines.js";
 import type { ShieldConfig } from "./config.js";
 import { orchestrateDualAgentLoop, type OrchestrateOptions } from "./orchestrator.js";
 
@@ -12,9 +12,10 @@ export interface LoopOptions extends Omit<OrchestrateOptions, "devCommand" | "au
 export async function runAgentLoop(
   options: LoopOptions,
 ): Promise<{ success: boolean; iterations: number; reason: string }> {
+  const engine = parseAgentEngine(options.engine);
   const { devCommand, auditCommand } = buildLoopCommands(
     path.resolve(options.workspace),
-    options.engine,
+    engine,
     options.benchmark,
   );
 

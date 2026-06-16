@@ -54,8 +54,16 @@ export type { ConsolidationKind } from "./context.js";
 export { runBenchmarkStaticVerification } from "./static-verify.js";
 export type { StaticVerifyResult } from "./static-verify.js";
 
-export { buildEngineCommand, buildLoopCommands, resolvePromptPaths, packageRoot } from "./engines.js";
-export type { AgentEngine, PromptPaths } from "./engines.js";
+export {
+  buildEngineCommand,
+  buildLoopCommands,
+  resolvePromptPaths,
+  packageRoot,
+  parseAgentEngine,
+  engineBinaryName,
+  SUPPORTED_ENGINES,
+} from "./engines.js";
+export type { AgentEngine, EngineCommandOptions, PromptPaths } from "./engines.js";
 
 export { runAgentLoop, initLoopWorkspace } from "./loop.js";
 export type { LoopOptions } from "./loop.js";
