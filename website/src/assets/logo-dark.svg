@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 32" fill="none" aria-hidden="true">
+  <path d="M16 2L4 7v9c0 7.2 5.1 13.9 12 15 6.9-1.1 12-7.8 12-15V7L16 2z" fill="#14b8a6"/>
+  <path d="M12 16l3 3 6-7" stroke="#042f2e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="22" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="600" fill="#f8fafc">ShieldedShell</text>
+</svg>

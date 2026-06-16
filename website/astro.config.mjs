@@ -11,8 +11,8 @@ export default defineConfig({
 			description:
 				'Zero-trust local safety harness and dual-agent loop orchestrator for CLI coding agents.',
 			logo: {
-				light: './src/assets/logo.svg',
-				dark: './src/assets/logo.svg',
+				light: './src/assets/logo-light.svg',
+				dark: './src/assets/logo-dark.svg',
 				replacesTitle: true,
 			},
 			customCss: ['./src/styles/custom.css'],

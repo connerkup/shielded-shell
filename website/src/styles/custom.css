@@ -1,31 +1,32 @@
 :root {
-  --sl-color-accent-low: #042f2e;
-  --sl-color-accent: #0f766e;
-  --sl-color-accent-high: #5eead4;
-  --sl-color-white: #f8fafc;
-  --sl-color-gray-1: #ecfdf5;
-  --sl-color-gray-2: #d1fae5;
-  --sl-color-gray-3: #94a3b8;
-  --sl-color-gray-4: #475569;
-  --sl-color-gray-5: #1e293b;
-  --sl-color-gray-6: #0f172a;
-  --sl-color-black: #020617;
+	--sl-hue-accent: 168;
+	--sl-color-accent-low: hsl(168, 55%, 18%);
+	--sl-color-accent: hsl(168, 64%, 40%);
+	--sl-color-accent-high: hsl(168, 70%, 85%);
 }
 
-:root[data-theme='light'] {
-  --sl-color-accent-low: #ecfdf5;
-  --sl-color-accent: #0f766e;
-  --sl-color-accent-high: #115e59;
-  --sl-color-bg: #ffffff;
-  --sl-color-bg-nav: #f8fafc;
-  --sl-color-bg-sidebar: #f1f5f9;
-  --sl-color-hairline-light: #e2e8f0;
+:root[data-theme='light'],
+[data-theme='light'] ::backdrop {
+	--sl-color-accent-low: hsl(168, 45%, 92%);
+	--sl-color-accent: hsl(168, 64%, 32%);
+	--sl-color-accent-high: hsl(168, 70%, 22%);
+	--sl-color-text-accent: var(--sl-color-accent-high);
 }
 
 .hero {
-  padding-block: 2rem;
+	padding-block: 2rem;
 }
 
 .sl-markdown-content h1 {
-  letter-spacing: -0.02em;
+	letter-spacing: -0.02em;
+}
+
+/* Splash hero: keep tagline readable on accent wash */
+.hero .tagline {
+	color: var(--sl-color-gray-2);
+	max-width: 42rem;
+}
+
+:root[data-theme='light'] .hero .tagline {
+	color: var(--sl-color-gray-3);
 }
