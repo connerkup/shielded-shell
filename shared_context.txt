@@ -1,2 +1,0 @@
-Task: ShieldedShell dual-agent session.
-Current status: Initializing workspace. Awaiting Developer draft.
