@@ -14,8 +14,10 @@ Controls applied to [connerkup/shielded-shell](https://github.com/connerkup/shie
 | **Dependency review** | Blocks PRs introducing high-severity deps |
 | **CodeQL** | Static analysis on push/PR + weekly schedule |
 | **CODEOWNERS** | Review routing for `.github/`, packages, website |
-| **Fork PR approval** | First-time outside contributors need maintainer approval before Actions run |
-| **Minimal Actions token** | CI workflows use `permissions: contents: read` only |
+| **Fork PR approval** | Public repos: first-time contributors need maintainer approval before fork workflows run (GitHub default). Tighten under **Settings → Actions → General** if needed. |
+| **Secret scanning + push protection** | Enabled on the public repo (GitHub default for public) |
+| **Minimal Actions token** | CI workflows use `permissions: contents: read` only; default workflow token is read-only |
+| **Delete branch on merge** | Enabled |
 
 ## Vulnerability reports
 
@@ -30,7 +32,13 @@ See [SECURITY.md](../SECURITY.md) for coordinated disclosure (not public issues)
 
 ## Re-applying branch protection
 
-Ruleset is repo metadata (not in git). If deleted, recreate from `.github/rulesets/main-protection.json` via GitHub UI **Rules → Rulesets → Import**, or ask maintainers to run the setup script after `gh auth login`.
+Ruleset is repo metadata (not in git). If deleted, recreate from `.github/rulesets/main-protection.json`:
+
+```powershell
+gh api --method POST repos/connerkup/shielded-shell/rulesets --input .github/rulesets/main-protection.json
+```
+
+Or use GitHub UI **Rules → Rulesets → Import**.
 
 ## Direct pushes to `main`
 
