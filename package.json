@@ -4,12 +4,16 @@
   "version": "0.1.0",
   "description": "Zero-trust local safety harness for CLI coding agents",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "website"
   ],
   "scripts": {
     "build": "npm run build -w @shieldedshell/core && npm run build -w @shieldedshell/cli",
     "test": "npm run test -w @shieldedshell/core",
     "lint": "npm run build",
+    "website:dev": "npm run dev -w website",
+    "website:build": "npm run build -w website",
+    "website:preview": "npm run preview -w website",
     "pack:check": "npm run build && npm pack -w @shieldedshell/core --dry-run && npm pack -w @shieldedshell/cli --dry-run",
     "publish:npm": "npm run test && npm run build && npm publish -w @shieldedshell/core --access public --tag beta && npm publish -w @shieldedshell/cli --access public --tag beta",
     "publish:npm:private": "npm run test && npm run build && npm publish -w @shieldedshell/core --access restricted && npm publish -w @shieldedshell/cli --access restricted",

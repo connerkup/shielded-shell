@@ -10,7 +10,7 @@ Zero-trust local safety harness and multi-agent consensus orchestrator for CLI c
 
 **Status: public beta (0.1.0)** — APIs and CLI flags may change before 1.0. Feedback welcome via [GitHub Issues](https://github.com/connerkup/shielded-shell/issues).
 
-Website: [shieldedshell.com](https://shieldedshell.com) (coming soon)
+**Docs:** [shieldedshell.com](https://shieldedshell.com) · [local dev](website/README.md)
 
 ## Install (recommended)
 
@@ -299,7 +299,9 @@ npm run build
 npm run pack:check   # dry-run npm tarballs before publish
 ```
 
-Pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md). CI runs tests on Node 20/22 (Linux) and Node 22 (Windows).
+Pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md). CI runs tests on Node 20/22 (Linux) and Node 22 (Windows), plus docs site build.
+
+**Docs site:** `npm run website:dev` (Astro + Starlight in `website/`). Deploy `website/dist` to [shieldedshell.com](https://shieldedshell.com).
 
 **History:** public `main` is a single squashed release commit. Granular dev history lives on [`archive/devlog-full-history`](https://github.com/connerkup/shielded-shell/tree/archive/devlog-full-history) — see `docs/archive/`.
 

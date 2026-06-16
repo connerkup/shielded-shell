@@ -1,0 +1,47 @@
+---
+title: ShieldedShell
+description: Zero-trust safety harness for CLI coding agents and dual-agent consensus loops.
+template: splash
+hero:
+  tagline: Run coding agents in a bounded workspace. Orchestrate developer and auditor loops with reconciler gates.
+  image:
+    file: ../../assets/logo.svg
+  actions:
+    - text: Install the CLI
+      link: /getting-started/installation/
+      icon: right-arrow
+    - text: GitHub
+      link: https://github.com/connerkup/shielded-shell
+      icon: external
+      variant: minimal
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+**Public beta (0.1.0)**. APIs may change before 1.0. Feedback welcome on [GitHub Issues](https://github.com/connerkup/shielded-shell/issues).
+
+## What it does
+
+ShieldedShell wraps terminal agent workflows with:
+
+- **Workspace sandbox** — overlay filesystem, blocked secret paths, network off by default
+- **Intercept log** — every read, exec, and policy decision is visible in the terminal
+- **Dual-agent loop** — developer and auditor agents with JSON buffers, phase locks, and a reconciler gate
+- **Engine profiles** — one data-driven integration path for Claude, Cline, Aider, OpenHands, OpenCode, Copilot, Cursor, and more
+
+<CardGrid>
+  <LinkCard title="Quick start" href="/getting-started/quick-start/" />
+  <LinkCard title="Dual-agent loop" href="/guides/dual-agent-loop/" />
+  <LinkCard title="CLI reference" href="/reference/commands/" />
+  <LinkCard title="Agent engines" href="/reference/engines/" />
+</CardGrid>
+
+## Install
+
+```bash
+npm install -g @shieldedshell/cli@beta
+shieldedshell init
+shieldedshell doctor
+```
+
+Packages: [@shieldedshell/cli](https://www.npmjs.com/package/@shieldedshell/cli) · [@shieldedshell/core](https://www.npmjs.com/package/@shieldedshell/core)
