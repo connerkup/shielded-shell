@@ -19,23 +19,28 @@ npm link
 shieldedshell run "echo safe"
 ```
 
-### Private npm install (team test)
+### npm publish (team test)
 
-Logged-in publish (npm account `connerkup` or your org):
+Org **`@shieldedshell`** exists and you are owner (`connerkup`). Scoped packages default to **private** (`restricted`), which requires **paid private packages on the org**, not just billing on your personal account. If you see:
 
-1. Create the **`@shieldedshell` npm org** once at [npmjs.com/org/create](https://www.npmjs.com/org/create) (required for scoped packages). Private scoped packages need a paid npm plan (`restricted` access); for a public beta use `--access public` and tag `beta` instead.
-2. From the repo root:
+```text
+E402 Payment Required - You must sign up for private packages
+```
+
+either enable **npm Teams billing on the org** at [npmjs.com/settings/shieldedshell/billing](https://www.npmjs.com/settings/shieldedshell/billing), or publish a **public scoped beta** (free; package name is still `@shieldedshell/*`, just installable without auth):
 
 ```bash
 npm run publish:npm
 ```
 
-3. Install on a test machine:
+That publishes with `--access public --tag beta`. Install on a test machine:
 
 ```bash
-npm install -g @shieldedshell/cli
+npm install -g @shieldedshell/cli@beta
 shieldedshell doctor
 ```
+
+When org private billing is active, use `npm run publish:npm:private` instead.
 
 Dry-run tarball contents before first publish: `npm run pack:check`.
 
