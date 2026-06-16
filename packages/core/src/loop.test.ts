@@ -50,8 +50,9 @@ describe("engines", () => {
   it("builds loop commands for cursor engine", () => {
     const workspace = repoRoot();
     const { devCommand, auditCommand, prompts } = buildLoopCommands(workspace, "cursor");
-    expect(devCommand).toContain("cursor-agent.cmd");
-    expect(auditCommand).toContain("cursor-agent.cmd");
+    expect(devCommand).toMatch(/cursor-agent(\.cmd)? /);
+    expect(auditCommand).toMatch(/cursor-agent(\.cmd)? /);
+    expect(devCommand).toContain("-p --trust --model auto");
     expect(prompts.developer).toContain("agent_a_prompt.txt");
   });
 
