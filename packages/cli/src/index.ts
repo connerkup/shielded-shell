@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   analyzeLedgerSafety,
-  engineBinaryName,
+  checkEngineHealth,
   evaluateApiGatewayPolicy,
   findConfigPath,
   initLoopWorkspace,
@@ -18,7 +18,6 @@ import {
   SUPPORTED_ENGINES,
   writeDefaultConfig,
 } from "@shieldedshell/core";
-import { spawnSync } from "node:child_process";
 
 const program = new Command();
 
@@ -242,11 +241,9 @@ program
     console.log(`Config: ${configPath ?? "(defaults only)"}`);
     console.log(`Supported engines: ${SUPPORTED_ENGINES.join(", ")}`);
     for (const engine of SUPPORTED_ENGINES) {
-      const binary = engineBinaryName(engine);
-      const lookupCmd = process.platform === "win32" ? "where" : "which";
-      const lookup = spawnSync(lookupCmd, [binary], { encoding: "utf8" });
-      const status = lookup.status === 0 ? "found" : "not on PATH";
-      console.log(`  ${engine}: ${binary} (${status})`);
+      const health = checkEngineHealth(engine);
+      const status = health.ready ? "ready" : health.detail;
+      console.log(`  ${engine}: ${health.binary} (${status})`);
     }
     if (configPath) {
       console.log(JSON.stringify(loadConfig(configPath, opts.dir), null, 2));

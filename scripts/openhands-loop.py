@@ -23,8 +23,8 @@ def main() -> int:
         task = handle.read()
 
     task += (
-        "\n\nIMPORTANT (OpenHands): Use file editor tools to write your complete JSON "
-        "response to your designated Write Target file from the prompt. Do not only print to stdout."
+        "\n\nIMPORTANT: Execute the agent prompt immediately. Write your complete JSON "
+        "response to the Write Target file named in the prompt. Do not only reply in chat or stdout."
     )
 
     os.chdir(workspace)

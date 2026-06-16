@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { loadConfig, resolveWorkspace, type ShieldConfig } from "./config.js";
+import { DEFAULT_AGENT_TIMEOUT_MS } from "./engine-profiles.js";
 import { InterceptLog } from "./intercept.js";
 import { ensureOverlay } from "./overlay.js";
 import { PolicyEngine } from "./policy.js";
@@ -91,12 +92,17 @@ export function runCommandSync(
     execCwd = ensureOverlay(workspace, log).overlay;
   }
 
+  const timeout =
+    envMode(options) === "agent"
+      ? Math.max(config.sandbox.cpuTimeoutMs, DEFAULT_AGENT_TIMEOUT_MS)
+      : config.sandbox.cpuTimeoutMs;
+
   const result = spawnSync(commandLine, {
     cwd: execCwd,
     env: policy.buildSandboxEnv(process.env, envMode(options)),
     shell: true,
     stdio: "inherit",
-    timeout: config.sandbox.cpuTimeoutMs,
+    timeout,
   });
 
   return { exitCode: result.status, signal: result.signal };

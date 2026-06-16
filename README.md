@@ -114,6 +114,10 @@ shieldedshell loop --engine copilot --benchmark 02_ledger_consensus --dir ./my-p
 
 Supported engines: `claude`, `cline`, `aider`, `openhands`, `openhands-sdk`, `opencode`, `antigravity`, `copilot`, `cursor`, `openclaw`. Prompts live in `prompts/` or `benchmark/<name>/agent_*_prompt.txt`.
 
+**Adding or tuning engines:** loop dispatch is data-driven in `packages/core/src/engine-profiles.ts`. Each profile declares the binary, how the prompt is delivered (`pipe-file`, `inline-prompt`, or `script`), headless/auto-approve flags, workspace binding, and optional phase file attachments. The shared `LOOP_TOOL_HINT` and 15-minute agent timeout apply to all engines — no per-engine TypeScript patches required for new CLIs that fit those patterns.
+
+Run `shieldedshell doctor` for **ready** vs **not on PATH** / missing SDK import (e.g. `openhands-sdk` checks `python -c "import openhands.sdk"`).
+
 ### Claude Code
 
 1. Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and sign in once (`claude auth login` or follow the installer).

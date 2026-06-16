@@ -59,8 +59,9 @@ describe("engines", () => {
     const workspace = repoRoot();
     const { devCommand, auditCommand } = buildLoopCommands(workspace, "claude");
     expect(devCommand).toContain("claude --bare");
+    expect(devCommand).toContain("-p ");
     expect(devCommand).toContain("--permission-mode acceptEdits");
-    expect(devCommand).toContain("Write or Edit tool");
+    expect(devCommand).toContain("Write Target file");
     expect(auditCommand).toContain("--allowedTools");
   });
 
@@ -71,8 +72,10 @@ describe("engines", () => {
     expect(devCommand).toContain("-c ");
     expect(devCommand).toContain(workspace);
     expect(devCommand).toContain("--auto-approve true");
+    expect(devCommand).toContain("--json");
     expect(devCommand).toContain("-t 900");
-    expect(devCommand).toContain("file write/edit tools");
+    expect(devCommand).toContain("type ");
+    expect(devCommand).toContain("agent_a_prompt.txt");
     expect(auditCommand).not.toContain("--prompt");
   });
 
@@ -98,7 +101,7 @@ describe("engines", () => {
     expect(devCommand).toContain("--override-with-envs");
     expect(devCommand).toContain("--exit-without-confirmation");
     expect(devCommand).toContain("OPENHANDS_SUPPRESS_BANNER");
-    expect(devCommand).toContain("file editor tools");
+    expect(devCommand).toContain("Write Target file");
   });
 
   it("builds openhands-sdk python runner commands", () => {
@@ -130,7 +133,8 @@ describe("engines", () => {
   it("builds copilot programmatic commands", () => {
     const workspace = repoRoot();
     const { devCommand } = buildLoopCommands(workspace, "copilot");
-    expect(devCommand).toContain("copilot --allow-all-tools");
+    expect(devCommand).toContain("copilot ");
+    expect(devCommand).toContain("--allow-all-tools");
     expect(devCommand).toContain("--add-dir ");
     expect(devCommand).toContain("-p ");
     expect(devCommand).toContain(workspace);

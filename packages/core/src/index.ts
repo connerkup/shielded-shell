@@ -57,13 +57,23 @@ export type { StaticVerifyResult } from "./static-verify.js";
 export {
   buildEngineCommand,
   buildLoopCommands,
-  resolvePromptPaths,
+  checkEngineHealth,
+  engineBinaryName,
+  engineProfile,
+  ENGINE_PROFILES,
   packageRoot,
   parseAgentEngine,
-  engineBinaryName,
+  resolvePromptPaths,
   SUPPORTED_ENGINES,
 } from "./engines.js";
-export type { AgentEngine, EngineCommandOptions, PromptPaths } from "./engines.js";
+export type {
+  AgentEngine,
+  EngineCommandOptions,
+  EngineHealth,
+  EngineProfile,
+  PromptPaths,
+} from "./engines.js";
+export { DEFAULT_AGENT_TIMEOUT_MS, LOOP_TOOL_HINT } from "./engine-profiles.js";
 
 export { runAgentLoop, initLoopWorkspace } from "./loop.js";
 export type { LoopOptions } from "./loop.js";
