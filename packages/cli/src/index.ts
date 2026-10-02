@@ -12,6 +12,7 @@ import {
   orchestrateDualAgentLoop,
   parseAgentEngine,
   reconcile,
+  runAcobBenchmark,
   runAgentLoop,
   runCommand,
   spawnInteractiveShell,
@@ -47,31 +48,49 @@ program
   .option("-d, --dir <path>", "Workspace directory", process.cwd())
   .option("-c, --config <path>", "Path to shield.yaml")
   .option("--no-overlay", "Disable copy-on-write overlay")
+  .option("--ephemeral", "Run in ephemeral scratchpad overlay (rolls back changes)")
+  .option("-t, --timeout <ms>", "Execution timeout in milliseconds", (val) => parseInt(val, 10))
+  .option("--anti-spoof", "Require anti-spoof assertion verification token")
   .allowUnknownOption()
   .allowExcessArguments()
-  .action(async (commandParts: string[], opts: { dir: string; config?: string; overlay?: boolean }) => {
-    const argv = process.argv;
-    const runIndex = argv.indexOf("run");
-    let command = commandParts;
-    if (runIndex >= 0) {
-      const dashDash = argv.indexOf("--", runIndex + 1);
-      if (dashDash >= 0) {
-        command = argv.slice(dashDash + 1);
+  .action(
+    async (
+      commandParts: string[],
+      opts: {
+        dir: string;
+        config?: string;
+        overlay?: boolean;
+        ephemeral?: boolean;
+        timeout?: number;
+        antiSpoof?: boolean;
+      },
+    ) => {
+      const argv = process.argv;
+      const runIndex = argv.indexOf("run");
+      let command = commandParts;
+      if (runIndex >= 0) {
+        const dashDash = argv.indexOf("--", runIndex + 1);
+        if (dashDash >= 0) {
+          command = argv.slice(dashDash + 1);
+        }
       }
-    }
-    if (command.length === 0) {
-      console.error("Usage: shieldedshell run [--] <command...>");
-      process.exit(1);
-    }
-    const config = loadConfig(opts.config, opts.dir);
-    const result = await runCommand(command[0], command.slice(1), {
-      cwd: opts.dir,
-      config,
-      configPath: opts.config,
-      useOverlay: opts.overlay !== false,
-    });
-    process.exit(result.exitCode ?? 1);
-  });
+      if (command.length === 0) {
+        console.error("Usage: shieldedshell run [--] <command...>");
+        process.exit(1);
+      }
+      const config = loadConfig(opts.config, opts.dir);
+      const result = await runCommand(command[0], command.slice(1), {
+        cwd: opts.dir,
+        config,
+        configPath: opts.config,
+        useOverlay: opts.overlay !== false,
+        ephemeral: opts.ephemeral,
+        timeoutMs: opts.timeout,
+        antiSpoof: opts.antiSpoof,
+      });
+      process.exit(result.exitCode ?? 1);
+    },
+  );
 
 program
   .command("shell")
@@ -198,35 +217,84 @@ program
   .description("Run dual-agent loop with engine dispatch and prompt templates")
   .option("-d, --dir <path>", "Workspace directory", process.cwd())
   .option("-c, --config <path>", "Path to shield.yaml")
-  .requiredOption(
+  .option(
     "-e, --engine <name>",
     "Agent engine: claude, cline, aider, openhands, openhands-sdk, opencode, antigravity, copilot, cursor, openclaw",
   )
+  .option("--dev <engine>", "Developer agent engine")
+  .option("--audit <engine>", "Auditor agent engine")
+  .option("-g, --goal <prompt>", "Task goal / prompt for shared context")
   .option("--benchmark <name>", "Benchmark folder under ./benchmark")
   .option("--target <path>", "Merge target file", "auth_service.js")
-  .action(async (opts) => {
-    const config = loadConfig(opts.config, opts.dir);
-    const workspace = path.resolve(opts.dir);
-    let engine;
-    try {
-      engine = parseAgentEngine(opts.engine);
-    } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
-      process.exit(1);
+  .action(
+    async (opts: {
+      dir: string;
+      config?: string;
+      engine?: string;
+      dev?: string;
+      audit?: string;
+      goal?: string;
+      benchmark?: string;
+      target: string;
+    }) => {
+      const config = loadConfig(opts.config, opts.dir);
+      const workspace = path.resolve(opts.dir);
+
+      const devRaw = opts.dev ?? opts.engine;
+      const auditRaw = opts.audit ?? opts.engine;
+
+      if (!devRaw || !auditRaw) {
+        console.error(
+          "Error: specify --engine <name> or both --dev <engine> and --audit <engine>",
+        );
+        process.exit(1);
+      }
+
+      let devEngine, auditEngine;
+      try {
+        devEngine = parseAgentEngine(devRaw);
+        auditEngine = parseAgentEngine(auditRaw);
+      } catch (err) {
+        console.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
+
+      initLoopWorkspace(workspace, opts.goal);
+      const result = await runAgentLoop({
+        workspace,
+        config,
+        devEngine,
+        auditEngine,
+        goal: opts.goal,
+        benchmark: opts.benchmark,
+        mergeTarget: path.resolve(workspace, opts.target),
+      });
+
+      if (result.receipt) {
+        console.log(result.receipt.card);
+      }
+
+      if (!result.success) {
+        console.error(`Loop failed: ${result.reason}`);
+        process.exit(1);
+      }
+      console.log(`Loop succeeded in ${result.iterations} iteration(s)`);
+    },
+  );
+
+program
+  .command("acob")
+  .description("Run and display the 4-tier ACOB benchmark scorecard")
+  .option("-d, --dir <path>", "Workspace directory", process.cwd())
+  .option("--json", "Output scorecard as JSON")
+  .action(async (opts: { dir: string; json?: boolean }) => {
+    const result = await runAcobBenchmark(opts.dir);
+    if (opts.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(result.scorecard);
     }
-    initLoopWorkspace(workspace);
-    const result = await runAgentLoop({
-      workspace,
-      config,
-      engine,
-      benchmark: opts.benchmark,
-      mergeTarget: path.resolve(workspace, opts.target),
-    });
-    if (!result.success) {
-      console.error(`Loop failed: ${result.reason}`);
-      process.exit(1);
-    }
-    console.log(`Loop succeeded in ${result.iterations} iteration(s)`);
+    process.exit(result.allPassed ? 0 : 1);
   });
 
 program

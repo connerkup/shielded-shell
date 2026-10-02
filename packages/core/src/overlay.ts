@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import type { InterceptLog } from "./intercept.js";
 
@@ -124,5 +125,91 @@ export function resetOverlay(workspace: string): void {
   const { root } = overlayPaths(workspace);
   if (fs.existsSync(root)) {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+export interface EphemeralOverlay {
+  tempDir: string;
+  workspace: string;
+  captureDiffs: () => string[];
+  rollback: () => void;
+}
+
+export function createEphemeralOverlay(workspace: string, log?: InterceptLog): EphemeralOverlay {
+  const resolvedWorkspace = path.resolve(workspace);
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "shieldedshell-ephemeral-"));
+
+  if (fs.existsSync(resolvedWorkspace)) {
+    for (const entry of fs.readdirSync(resolvedWorkspace)) {
+      if (shouldSkip(entry)) continue;
+      const src = path.join(resolvedWorkspace, entry);
+      const dest = path.join(tempDir, entry);
+      copyRecursive(src, dest);
+    }
+  }
+
+  log?.info(`Ephemeral CoW overlay initialized at ${tempDir}`);
+
+  function captureDiffs(): string[] {
+    if (!fs.existsSync(tempDir)) return [];
+    const changed: string[] = [];
+
+    function walk(rel: string, base: string, mirror: string): void {
+      if (!fs.existsSync(mirror)) return;
+      const stat = fs.statSync(mirror);
+      if (stat.isDirectory()) {
+        for (const entry of fs.readdirSync(mirror)) {
+          if (shouldSkip(entry)) continue;
+          walk(path.join(rel, entry), base, path.join(mirror, entry));
+        }
+        return;
+      }
+      const original = path.join(base, rel);
+      if (!fs.existsSync(original)) {
+        changed.push(rel.replace(/\\/g, "/"));
+        return;
+      }
+      const a = fs.readFileSync(original);
+      const b = fs.readFileSync(mirror);
+      if (!a.equals(b)) {
+        changed.push(rel.replace(/\\/g, "/"));
+      }
+    }
+
+    for (const entry of fs.readdirSync(tempDir)) {
+      if (shouldSkip(entry)) continue;
+      walk(entry, resolvedWorkspace, path.join(tempDir, entry));
+    }
+
+    return changed;
+  }
+
+  function rollback(): void {
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      log?.audit("Ephemeral workspace rolled back cleanly: temp scratchpad removed");
+    }
+  }
+
+  return {
+    tempDir,
+    workspace: resolvedWorkspace,
+    captureDiffs,
+    rollback,
+  };
+}
+
+export async function withEphemeralOverlay<T>(
+  workspace: string,
+  fn: (overlay: EphemeralOverlay) => Promise<T> | T,
+  log?: InterceptLog,
+): Promise<{ result: T; diffs: string[] }> {
+  const overlay = createEphemeralOverlay(workspace, log);
+  try {
+    const result = await fn(overlay);
+    const diffs = overlay.captureDiffs();
+    return { result, diffs };
+  } finally {
+    overlay.rollback();
   }
 }

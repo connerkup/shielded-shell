@@ -13,6 +13,7 @@ import { overlayPaths } from "./overlay.js";
 import { reconcile, type ReconcilePaths } from "./reconcile.js";
 import { runCommandSync } from "./runner.js";
 import { applyPhaseLocks, restoreAllWritable, type PartitionTargets } from "./spatial.js";
+import { generateReceipt, type VerificationReceipt } from "./receipt.js";
 
 export interface OrchestrateOptions {
   workspace: string;
@@ -23,6 +24,13 @@ export interface OrchestrateOptions {
   benchmark?: string;
   mergeTarget?: string;
   iterationDelayMs?: number;
+}
+
+export interface OrchestrateResult {
+  success: boolean;
+  iterations: number;
+  reason: string;
+  receipt: VerificationReceipt;
 }
 
 function defaultPaths(workspace: string, mergeTarget: string): ReconcilePaths {
@@ -72,7 +80,7 @@ function hasCriticalSuccess(sharedContextPath: string): boolean {
 
 export async function orchestrateDualAgentLoop(
   options: OrchestrateOptions,
-): Promise<{ success: boolean; iterations: number; reason: string }> {
+): Promise<OrchestrateResult> {
   const log = new InterceptLog();
   const workspace = path.resolve(options.workspace);
   const mergeTarget = path.resolve(options.mergeTarget ?? path.join(workspace, "output.js"));
@@ -87,6 +95,40 @@ export async function orchestrateDualAgentLoop(
 
   if (fs.existsSync(paths.hashHistory)) {
     fs.unlinkSync(paths.hashHistory);
+  }
+
+  function finalize(success: boolean, iterations: number, reason: string): OrchestrateResult {
+    restoreAllWritable(partition);
+    hideBenchmarkSecrets(workspace);
+
+    const receipt = generateReceipt({
+      workspace,
+      success,
+      iterations,
+      reason,
+      benchmark: options.benchmark,
+      mergeTarget,
+    });
+
+    try {
+      const stateDir = overlayPaths(workspace).stateDir;
+      if (!fs.existsSync(stateDir)) {
+        fs.mkdirSync(stateDir, { recursive: true });
+      }
+      fs.writeFileSync(
+        path.join(stateDir, "receipt.json"),
+        JSON.stringify(receipt, null, 2),
+        "utf8",
+      );
+    } catch {}
+
+    log.info(`Verification receipt generated: ${receipt.id}`);
+    return {
+      success,
+      iterations,
+      reason,
+      receipt,
+    };
   }
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
@@ -105,13 +147,7 @@ export async function orchestrateDualAgentLoop(
       networkPolicy: "agent",
     });
     if (devResult.exitCode !== 0) {
-      restoreAllWritable(partition);
-      hideBenchmarkSecrets(workspace);
-      return {
-        success: false,
-        iterations: iteration,
-        reason: `Developer command failed with exit ${devResult.exitCode}`,
-      };
+      return finalize(false, iteration, `Developer command failed with exit ${devResult.exitCode}`);
     }
 
     applyPhaseLocks("auditor", partition);
@@ -127,13 +163,7 @@ export async function orchestrateDualAgentLoop(
       networkPolicy: "agent",
     });
     if (auditResult.exitCode !== 0) {
-      restoreAllWritable(partition);
-      hideBenchmarkSecrets(workspace);
-      return {
-        success: false,
-        iterations: iteration,
-        reason: `Auditor command failed with exit ${auditResult.exitCode}`,
-      };
+      return finalize(false, iteration, `Auditor command failed with exit ${auditResult.exitCode}`);
     }
 
     applyPhaseLocks("reconcile", partition);
@@ -153,8 +183,7 @@ export async function orchestrateDualAgentLoop(
     restoreAllWritable(partition);
 
     if (result.success || hasCriticalSuccess(paths.sharedContext)) {
-      hideBenchmarkSecrets(workspace);
-      return { success: true, iterations: iteration, reason: result.reason };
+      return finalize(true, iteration, result.reason);
     }
 
     log.emit({
@@ -170,14 +199,7 @@ export async function orchestrateDualAgentLoop(
   }
 
   appendGovernorInterrupt(paths.sharedContext, maxIterations);
-  hideBenchmarkSecrets(workspace);
-  restoreAllWritable(partition);
-
-  return {
-    success: false,
-    iterations: maxIterations,
-    reason: "INTERRUPT_REQUIRED",
-  };
+  return finalize(false, maxIterations, "INTERRUPT_REQUIRED");
 }
 
-export { validatorPath };
+export { validatorPath, generateReceipt, type VerificationReceipt };

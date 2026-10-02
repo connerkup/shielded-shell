@@ -19,16 +19,30 @@ hero:
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-**Public beta (0.1.0)**. APIs may change before 1.0. Feedback welcome on [GitHub Issues](https://github.com/connerkup/shielded-shell/issues).
+**Public Beta (v2.0)**. The Unified Agentic Containment & OpSec Engine. Feedback welcome on [GitHub Issues](https://github.com/connerkup/shielded-shell/issues).
 
-## What it does
+## 1-Line Quick Install
 
-ShieldedShell wraps terminal agent workflows with:
+```bash
+curl -fsSL https://shieldedshell.com/install.sh | sh
+```
 
-- **Workspace sandbox** — overlay filesystem, blocked secret paths, network off by default
-- **Intercept log** — every read, exec, and policy decision is visible in the terminal
-- **Dual-agent loop** — developer and auditor agents with JSON buffers, phase locks, and a reconciler gate
-- **Engine profiles** — one data-driven integration path for Claude, Cline, Aider, OpenHands, OpenCode, Copilot, Cursor, and more
+Or install via npm:
+
+```bash
+npm install -g @shieldedshell/cli@beta
+shieldedshell init
+shieldedshell doctor
+```
+
+## The 4-Tier Containment Architecture (ACOB v2.0)
+
+ShieldedShell bridges OS-level containment with autonomous multi-agent execution integrity:
+
+- **Tier 1: OS Boundary & Perimeter** — Credential masking (AWS SIGv4, JWT), symlink traversal traps, PID namespace isolation, and egress loopback proxy.
+- **Tier 2: System OpSec & Persistence Defense** — Mandatory default-deny on `.git/hooks/**` (blocking backdoor injection), shell rc write locks, and CPU timeout escalation.
+- **Tier 3: Execution & Runtime Integrity** — Ephemeral Copy-on-Write (`--ephemeral`) overlay scratchpads with zero host disk mutation, and cryptographic anti-spoof assertion verification.
+- **Tier 4: Multi-Agent Game Theory** — Asymmetric spatial partitioning for developer and auditor agents, verifiable consensus receipts, and non-LLM interval/Datalog invariant solvers.
 
 <CardGrid>
   <LinkCard title="Quick start" href="/getting-started/quick-start/" />
@@ -37,12 +51,5 @@ ShieldedShell wraps terminal agent workflows with:
   <LinkCard title="Agent engines" href="/reference/engines/" />
 </CardGrid>
 
-## Install
-
-```bash
-npm install -g @shieldedshell/cli@beta
-shieldedshell init
-shieldedshell doctor
-```
-
 Packages: [@shieldedshell/cli](https://www.npmjs.com/package/@shieldedshell/cli) · [@shieldedshell/core](https://www.npmjs.com/package/@shieldedshell/core)
+

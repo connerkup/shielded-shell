@@ -3,19 +3,38 @@ import path from "node:path";
 import type { AgentEngine } from "./engines.js";
 import { buildLoopCommands, parseAgentEngine } from "./engines.js";
 import type { ShieldConfig } from "./config.js";
-import { orchestrateDualAgentLoop, type OrchestrateOptions } from "./orchestrator.js";
+import {
+  orchestrateDualAgentLoop,
+  type OrchestrateOptions,
+  type OrchestrateResult,
+} from "./orchestrator.js";
+import type { VerificationReceipt } from "./receipt.js";
 
 export interface LoopOptions extends Omit<OrchestrateOptions, "devCommand" | "auditCommand"> {
-  engine: AgentEngine;
+  engine?: AgentEngine;
+  devEngine?: AgentEngine;
+  auditEngine?: AgentEngine;
+  goal?: string;
 }
 
-export async function runAgentLoop(
-  options: LoopOptions,
-): Promise<{ success: boolean; iterations: number; reason: string }> {
-  const engine = parseAgentEngine(options.engine);
+export async function runAgentLoop(options: LoopOptions): Promise<OrchestrateResult> {
+  const devEngineName = options.devEngine ?? options.engine;
+  const auditEngineName = options.auditEngine ?? options.engine;
+
+  if (!devEngineName || !auditEngineName) {
+    throw new Error("Must provide engine or both devEngine and auditEngine");
+  }
+
+  const devEngine = parseAgentEngine(devEngineName);
+  const auditEngine = parseAgentEngine(auditEngineName);
+
+  if (options.goal) {
+    initLoopWorkspace(options.workspace, options.goal);
+  }
+
   const { devCommand, auditCommand } = buildLoopCommands(
     path.resolve(options.workspace),
-    engine,
+    { dev: devEngine, audit: auditEngine },
     options.benchmark,
   );
 

@@ -115,15 +115,17 @@ export function buildEngineCommand(
 
 export function buildLoopCommands(
   workspace: string,
-  engine: AgentEngine,
+  engine: AgentEngine | { dev: AgentEngine; audit: AgentEngine },
   benchmark?: string,
   options: Omit<EngineCommandOptions, "workspace"> = {},
 ): { devCommand: string; auditCommand: string; prompts: PromptPaths } {
+  const devEngine = typeof engine === "object" ? engine.dev : engine;
+  const auditEngine = typeof engine === "object" ? engine.audit : engine;
   const prompts = resolvePromptPaths(workspace, benchmark);
   const engineOptions: EngineCommandOptions = { workspace, ...options };
   return {
     prompts,
-    devCommand: buildEngineCommand(engine, prompts.developer, { ...engineOptions, phase: "developer" }),
-    auditCommand: buildEngineCommand(engine, prompts.auditor, { ...engineOptions, phase: "auditor" }),
+    devCommand: buildEngineCommand(devEngine, prompts.developer, { ...engineOptions, phase: "developer" }),
+    auditCommand: buildEngineCommand(auditEngine, prompts.auditor, { ...engineOptions, phase: "auditor" }),
   };
 }
