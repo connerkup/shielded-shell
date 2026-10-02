@@ -1,11 +1,13 @@
 import { spawn, spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { loadConfig, resolveWorkspace, type ShieldConfig } from "./config.js";
 import { DEFAULT_AGENT_TIMEOUT_MS } from "./engine-profiles.js";
 import { InterceptLog } from "./intercept.js";
-import { ensureOverlay } from "./overlay.js";
+import { createEphemeralOverlay, ensureOverlay, type EphemeralOverlay } from "./overlay.js";
 import { PolicyEngine } from "./policy.js";
+import { generateAntiSpoofToken, verifyAntiSpoofToken } from "./sandbox.js";
 import { analyzeLedgerSafety } from "./solvers/interval.js";
 
 export interface RunCommandOptions {
@@ -13,9 +15,15 @@ export interface RunCommandOptions {
   config?: ShieldConfig;
   configPath?: string;
   useOverlay?: boolean;
+  ephemeral?: boolean;
+  antiSpoof?: boolean;
+  antiSpoofToken?: string;
+  timeoutMs?: number;
+  gracePeriodMs?: number;
   shell?: boolean;
   /** sandbox = block network/secrets; agent = inherit env for LLM CLI tools */
   networkPolicy?: "sandbox" | "agent";
+  stdio?: "inherit" | "pipe";
 }
 
 function envMode(options: RunCommandOptions): "sandbox" | "agent" {
@@ -25,6 +33,12 @@ function envMode(options: RunCommandOptions): "sandbox" | "agent" {
 export interface RunCommandResult {
   exitCode: number | null;
   signal: NodeJS.Signals | null;
+  timedOut?: boolean;
+  tokenVerified?: boolean;
+  antiSpoofToken?: string;
+  diffs?: string[];
+  stdout?: string;
+  stderr?: string;
 }
 
 function getConfig(options: RunCommandOptions): ShieldConfig {
@@ -55,21 +69,153 @@ export function runCommand(
   }
 
   let execCwd = workspace;
-  if (options.useOverlay ?? config.sandbox.overlayEnabled) {
+  let ephemeral: EphemeralOverlay | null = null;
+
+  if (options.ephemeral) {
+    ephemeral = createEphemeralOverlay(workspace, log);
+    execCwd = ephemeral.tempDir;
+  } else if (options.useOverlay ?? config.sandbox.overlayEnabled) {
     execCwd = ensureOverlay(workspace, log).overlay;
   }
 
   const env = policy.buildSandboxEnv(process.env, envMode(options));
+
+  const antiSpoof = Boolean(options.antiSpoof || options.antiSpoofToken);
+  const token = antiSpoof
+    ? (options.antiSpoofToken ?? generateAntiSpoofToken())
+    : undefined;
+
+  if (token) {
+    env.SHIELDEDSHELL_ASSERTION_TOKEN = token;
+    env.SHIELD_ASSERTION_TOKEN = token;
+  }
+
+  const timeoutMs =
+    options.timeoutMs ??
+    (envMode(options) === "agent"
+      ? Math.max(config.sandbox.cpuTimeoutMs, DEFAULT_AGENT_TIMEOUT_MS)
+      : config.sandbox.cpuTimeoutMs);
+  const gracePeriodMs = options.gracePeriodMs ?? 1500;
+
   log.audit("Launching sandboxed process");
 
   return new Promise((resolve) => {
+    let stdoutBuffer = "";
+    let stderrBuffer = "";
+    let timedOut = false;
+    let termTimer: NodeJS.Timeout | null = null;
+    let killTimer: NodeJS.Timeout | null = null;
+
+    const usePipedStdio = antiSpoof || options.stdio === "pipe";
+
     const child = spawn(command, args, {
       cwd: execCwd,
       env,
       shell: options.shell ?? false,
-      stdio: "inherit",
+      stdio: usePipedStdio ? ["pipe", "pipe", "pipe"] : "inherit",
     });
-    child.on("close", (code, signal) => resolve({ exitCode: code, signal }));
+
+    if (usePipedStdio) {
+      if (token && child.stdin) {
+        child.stdin.write(`${token}\n`);
+        child.stdin.end();
+      }
+
+      child.stdout?.on("data", (chunk: Buffer) => {
+        stdoutBuffer += chunk.toString("utf8");
+        if (options.stdio !== "pipe") {
+          process.stdout.write(chunk);
+        }
+      });
+
+      child.stderr?.on("data", (chunk: Buffer) => {
+        stderrBuffer += chunk.toString("utf8");
+        if (options.stdio !== "pipe") {
+          process.stderr.write(chunk);
+        }
+      });
+    }
+
+    if (timeoutMs > 0 && Number.isFinite(timeoutMs)) {
+      termTimer = setTimeout(() => {
+        timedOut = true;
+        log.emit({
+          kind: "audit",
+          target: fullCommand,
+          action: "blocked",
+          detail: `cpuTimeoutMs (${timeoutMs}ms) exceeded, sending SIGTERM`,
+        });
+        try {
+          child.kill("SIGTERM");
+        } catch {}
+
+        killTimer = setTimeout(() => {
+          log.emit({
+            kind: "audit",
+            target: fullCommand,
+            action: "blocked",
+            detail: `SIGTERM grace period (${gracePeriodMs}ms) expired, escalating to SIGKILL`,
+          });
+          try {
+            child.kill("SIGKILL");
+          } catch {}
+        }, gracePeriodMs);
+        killTimer.unref?.();
+      }, timeoutMs);
+      termTimer.unref?.();
+    }
+
+    child.on("close", (code, signal) => {
+      if (termTimer) clearTimeout(termTimer);
+      if (killTimer) clearTimeout(killTimer);
+
+      let diffs: string[] | undefined;
+      if (ephemeral) {
+        diffs = ephemeral.captureDiffs();
+        ephemeral.rollback();
+      }
+
+      let exitCode = code ?? (timedOut ? 124 : null);
+      let tokenVerified: boolean | undefined;
+
+      if (token) {
+        tokenVerified = verifyAntiSpoofToken(stdoutBuffer, token);
+        if (exitCode === 0 && !tokenVerified) {
+          log.emit({
+            kind: "audit",
+            target: fullCommand,
+            action: "blocked",
+            detail: "anti-spoof assertion verification failed: token not found in output",
+          });
+          exitCode = 1;
+        }
+      }
+
+      resolve({
+        exitCode,
+        signal,
+        timedOut,
+        tokenVerified,
+        antiSpoofToken: token,
+        diffs,
+        stdout: stdoutBuffer,
+        stderr: stderrBuffer,
+      });
+    });
+
+    child.on("error", (err) => {
+      if (termTimer) clearTimeout(termTimer);
+      if (killTimer) clearTimeout(killTimer);
+      if (ephemeral) {
+        ephemeral.rollback();
+      }
+      resolve({
+        exitCode: 1,
+        signal: null,
+        timedOut,
+        stderr: stderrBuffer || err.message,
+      });
+    });
   });
 }
 
@@ -88,24 +234,87 @@ export function runCommandSync(
   }
 
   let execCwd = workspace;
-  if (options.useOverlay ?? config.sandbox.overlayEnabled) {
+  let ephemeral: EphemeralOverlay | null = null;
+
+  if (options.ephemeral) {
+    ephemeral = createEphemeralOverlay(workspace, log);
+    execCwd = ephemeral.tempDir;
+  } else if (options.useOverlay ?? config.sandbox.overlayEnabled) {
     execCwd = ensureOverlay(workspace, log).overlay;
   }
 
+  const antiSpoof = Boolean(options.antiSpoof || options.antiSpoofToken);
+  const token = antiSpoof
+    ? (options.antiSpoofToken ?? generateAntiSpoofToken())
+    : undefined;
+
+  const env = policy.buildSandboxEnv(process.env, envMode(options));
+  if (token) {
+    env.SHIELDEDSHELL_ASSERTION_TOKEN = token;
+    env.SHIELD_ASSERTION_TOKEN = token;
+  }
+
   const timeout =
-    envMode(options) === "agent"
+    options.timeoutMs ??
+    (envMode(options) === "agent"
       ? Math.max(config.sandbox.cpuTimeoutMs, DEFAULT_AGENT_TIMEOUT_MS)
-      : config.sandbox.cpuTimeoutMs;
+      : config.sandbox.cpuTimeoutMs);
 
-  const result = spawnSync(commandLine, {
-    cwd: execCwd,
-    env: policy.buildSandboxEnv(process.env, envMode(options)),
-    shell: true,
-    stdio: "inherit",
-    timeout,
-  });
+  try {
+    const usePiped = antiSpoof || options.stdio === "pipe";
+    const result = spawnSync(commandLine, {
+      cwd: execCwd,
+      env,
+      shell: true,
+      encoding: "utf8",
+      stdio: usePiped ? ["pipe", "pipe", "pipe"] : "inherit",
+      input: token ? `${token}\n` : undefined,
+      timeout,
+      killSignal: "SIGKILL",
+    });
 
-  return { exitCode: result.status, signal: result.signal };
+    let diffs: string[] | undefined;
+    if (ephemeral) {
+      diffs = ephemeral.captureDiffs();
+      ephemeral.rollback();
+      ephemeral = null;
+    }
+
+    const timedOut = Boolean(
+      result.error && "code" in result.error && result.error.code === "ETIMEDOUT",
+    );
+    let exitCode = result.status ?? (timedOut ? 124 : 1);
+    let tokenVerified: boolean | undefined;
+
+    if (token) {
+      const stdout = result.stdout ?? "";
+      tokenVerified = verifyAntiSpoofToken(stdout, token);
+      if (exitCode === 0 && !tokenVerified) {
+        log.emit({
+          kind: "audit",
+          target: commandLine,
+          action: "blocked",
+          detail: "anti-spoof assertion verification failed: token not found in output",
+        });
+        exitCode = 1;
+      }
+    }
+
+    return {
+      exitCode,
+      signal: result.signal,
+      timedOut,
+      tokenVerified,
+      antiSpoofToken: token,
+      diffs,
+      stdout: result.stdout ?? "",
+      stderr: result.stderr ?? "",
+    };
+  } finally {
+    if (ephemeral) {
+      ephemeral.rollback();
+    }
+  }
 }
 
 export function spawnInteractiveShell(

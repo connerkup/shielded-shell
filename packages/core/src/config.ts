@@ -33,7 +33,7 @@ const DEFAULT_CONFIG: ShieldConfig = {
     allowNetwork: false,
     allowedDomains: [],
     maxMemoryMb: 256,
-    cpuTimeoutMs: 300_000,
+    cpuTimeoutMs: 30_000,
     overlayEnabled: true,
   },
   invariants: {
@@ -53,7 +53,21 @@ const DEFAULT_CONFIG: ShieldConfig = {
       "**/id_rsa",
       "**/credentials.json",
     ],
-    blockedWriteGlobs: ["**/.git/**", "**/node_modules/**"],
+    blockedWriteGlobs: [
+      "**/.git/**",
+      "**/.git/hooks/**",
+      "**/node_modules/**",
+      "**/.bashrc",
+      "**/.zshrc",
+      "**/.profile",
+      "**/.bash_profile",
+      "**/.config/fish/**",
+      "~/.bashrc",
+      "~/.zshrc",
+      "~/.profile",
+      "~/.bash_profile",
+      "~/.config/fish/**",
+    ],
   },
 };
 
@@ -138,7 +152,7 @@ sandbox:
   allow_network: false
   allowed_domains: []
   max_memory_mb: 256
-  cpu_timeout_ms: 300000
+  cpu_timeout_ms: 30000
   overlay_enabled: true
 
 invariants:
@@ -161,6 +175,12 @@ paths:
     - "**/.env.*"
   blocked_write_globs:
     - "**/.git/**"
+    - "**/.git/hooks/**"
+    - "**/.bashrc"
+    - "**/.zshrc"
+    - "**/.profile"
+    - "**/.bash_profile"
+    - "**/.config/fish/**"
 `;
   fs.writeFileSync(targetPath, template, "utf8");
 }

@@ -4,6 +4,44 @@ import path from "node:path";
 import type { ShieldConfig } from "./config.js";
 import type { InterceptLog } from "./intercept.js";
 
+export const MANDATORY_BLOCKED_WRITE_GLOBS: readonly string[] = [
+  "**/.git/hooks/**",
+  ".git/hooks/**",
+  "**/.bashrc",
+  "~/.bashrc",
+  ".bashrc",
+  "**/.zshrc",
+  "~/.zshrc",
+  ".zshrc",
+  "**/.profile",
+  "~/.profile",
+  ".profile",
+  "**/.bash_profile",
+  "~/.bash_profile",
+  ".bash_profile",
+  "**/.config/fish/**",
+  "~/.config/fish/**",
+  ".config/fish/**",
+];
+
+export const DEFAULT_BLOCKED_PATHS = {
+  read: [
+    "~/.ssh/**",
+    "~/.aws/**",
+    "**/.env",
+    "**/.env.*",
+    "**/id_rsa",
+    "**/credentials.json",
+  ],
+  write: [
+    "**/.git/**",
+    "**/node_modules/**",
+    ...MANDATORY_BLOCKED_WRITE_GLOBS,
+  ],
+};
+
+export const DEFAULT_BLOCKED_WRITE_PATHS = DEFAULT_BLOCKED_PATHS.write;
+
 function expandHome(input: string): string {
   if (input.startsWith("~/")) {
     return path.join(os.homedir(), input.slice(2));
@@ -11,14 +49,26 @@ function expandHome(input: string): string {
   return input;
 }
 
-function globToRegExp(glob: string): RegExp {
-  const escaped = glob
+export function globToRegExp(glob: string): RegExp {
+  let normalizedGlob = expandHome(glob).replace(/\\/g, "/");
+  let prefix = "";
+  if (normalizedGlob.startsWith("**/")) {
+    prefix = "(?:.*\\/)?";
+    normalizedGlob = normalizedGlob.slice(3);
+  }
+  let suffix = "";
+  if (normalizedGlob.endsWith("/**")) {
+    suffix = "(?:\\/.*)?";
+    normalizedGlob = normalizedGlob.slice(0, -3);
+  }
+
+  const escaped = normalizedGlob
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*\*/g, "§§")
+    .replace(/\*\*/g, ".*")
     .replace(/\*/g, "[^/\\\\]*")
-    .replace(/§§/g, ".*")
     .replace(/\?/g, ".");
-  return new RegExp(`^${escaped}$`, "i");
+
+  return new RegExp(`^${prefix}${escaped}${suffix}$`, "i");
 }
 
 function normalizeForMatch(inputPath: string): string {
@@ -31,11 +81,17 @@ export class PolicyEngine {
 
   constructor(private config: ShieldConfig, private workspace: string) {
     this.blockedRead = config.paths.blockedReadGlobs.map(globToRegExp);
-    this.blockedWrite = config.paths.blockedWriteGlobs.map(globToRegExp);
+    const combinedWriteGlobs = Array.from(
+      new Set([...config.paths.blockedWriteGlobs, ...MANDATORY_BLOCKED_WRITE_GLOBS]),
+    );
+    this.blockedWrite = combinedWriteGlobs.map(globToRegExp);
   }
 
   isInsideWorkspace(targetPath: string): boolean {
-    const resolved = path.resolve(targetPath);
+    const expanded = expandHome(targetPath);
+    const resolved = path.isAbsolute(expanded)
+      ? path.resolve(expanded)
+      : path.resolve(this.workspace, targetPath);
     const workspace = path.resolve(this.workspace);
     const rel = path.relative(workspace, resolved);
     return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
@@ -43,8 +99,15 @@ export class PolicyEngine {
 
   checkRead(targetPath: string, log: InterceptLog): boolean {
     const normalized = normalizeForMatch(targetPath);
+    const expanded = expandHome(targetPath);
+    const resolved = path.isAbsolute(expanded)
+      ? path.resolve(expanded)
+      : path.resolve(this.workspace, targetPath);
+    const workspaceResolved = path.resolve(this.workspace);
+    const rel = path.relative(workspaceResolved, resolved).replace(/\\/g, "/");
+
     for (const pattern of this.blockedRead) {
-      if (pattern.test(normalized)) {
+      if (pattern.test(normalized) || (rel && pattern.test(rel))) {
         log.emit({ kind: "read", target: targetPath, action: "blocked", detail: "policy" });
         return false;
       }
@@ -64,8 +127,15 @@ export class PolicyEngine {
 
   checkWrite(targetPath: string, log: InterceptLog): boolean {
     const normalized = normalizeForMatch(targetPath);
+    const expanded = expandHome(targetPath);
+    const resolved = path.isAbsolute(expanded)
+      ? path.resolve(expanded)
+      : path.resolve(this.workspace, targetPath);
+    const workspaceResolved = path.resolve(this.workspace);
+    const rel = path.relative(workspaceResolved, resolved).replace(/\\/g, "/");
+
     for (const pattern of this.blockedWrite) {
-      if (pattern.test(normalized)) {
+      if (pattern.test(normalized) || (rel && pattern.test(rel))) {
         log.emit({ kind: "write", target: targetPath, action: "blocked", detail: "policy" });
         return false;
       }
