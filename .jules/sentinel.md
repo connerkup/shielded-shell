@@ -1,0 +1,4 @@
+## 2023-10-16 - Prevent Command Injection in Node Execution
+**Vulnerability:** Command injection was possible in `packages/core/src/reconcile.ts` due to the use of `execSync(\`node --check "${tempFile}"\`)`. If `options.workspace` contained shell characters or double quotes, it could escape the quotes and execute arbitrary shell commands.
+**Learning:** `execSync` relies on shell expansion and interpolation, which is fundamentally unsafe for dynamic file paths. Furthermore, relying on `node` from the environment PATH can lead to hijack if an attacker modifies the PATH.
+**Prevention:** Always use `spawnSync(process.execPath, ['--check', tempFile])`. Passing arguments as an array bypasses shell interpretation entirely, and `process.execPath` guarantees the exact same Node.js executable currently running is used.
