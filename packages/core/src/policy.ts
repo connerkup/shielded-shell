@@ -205,7 +205,7 @@ export class PolicyEngine {
     if (mode === "sandbox") {
       const stripPrefixes = ["AWS_", "OPENAI_", "ANTHROPIC_", "GITHUB_TOKEN", "NPM_TOKEN"];
       for (const key of Object.keys(env)) {
-        if (stripPrefixes.some((prefix) => key.startsWith(prefix))) {
+        if (stripPrefixes.some((prefix) => key.toUpperCase().startsWith(prefix))) {
           delete env[key];
         }
       }
