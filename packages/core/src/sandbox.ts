@@ -42,7 +42,7 @@ export function runSandboxedNodeScript(
   try {
     const result = spawnSync(process.execPath, [scriptPath], {
       cwd: options.cwd,
-      env: options.env,
+      env: options.env ?? {},
       encoding: "utf8",
       timeout: options.timeoutMs ?? DEFAULT_CPU_TIMEOUT_MS,
       killSignal: "SIGKILL",
@@ -85,7 +85,7 @@ export function runSandboxedNodeScriptAsync(
 
     const child = spawn(process.execPath, [scriptPath], {
       cwd: options.cwd,
-      env: options.env,
+      env: options.env ?? {},
       stdio: ["ignore", "pipe", "pipe"],
     });
 
