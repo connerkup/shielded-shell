@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -138,20 +138,14 @@ export function reconcile(options: ReconcileOptions): ReconcileResult {
   fs.mkdirSync(path.dirname(tempFile), { recursive: true });
   fs.writeFileSync(tempFile, extractedCode, "utf8");
 
-  try {
-    execSync(`node --check "${tempFile}"`, { stdio: "pipe" });
-    log.audit("Syntax check passed");
-  } catch (err) {
-    const stderr =
-      err && typeof err === "object" && "stderr" in err
-        ? String((err as { stderr?: Buffer }).stderr ?? "")
-        : err instanceof Error
-          ? err.message
-          : String(err);
+  const checkResult = spawnSync(process.execPath, ["--check", tempFile], { stdio: "pipe", encoding: "utf8" });
+  if (checkResult.status !== 0 || checkResult.error) {
+    const stderr = checkResult.stderr ?? (checkResult.error ? checkResult.error.message : "Syntax check failed");
     consolidateSharedContext(sharedContext, `Syntax Error:\n${stderr}`);
     if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
     return { success: false, reason: "Syntax check failed" };
   }
+  log.audit("Syntax check passed");
 
   if (options.benchmark) {
     const staticResult = runBenchmarkStaticVerification(options.workspace, options.benchmark);
