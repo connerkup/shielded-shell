@@ -1,0 +1,4 @@
+## 2023-10-25 - [Command Injection Risk]
+**Vulnerability:** Use of `execSync` with a string interpolated path in `reconcile.ts` (`execSync(\`node --check "\${tempFile}"\`)`) opened up a command injection risk if the file path was ever attacker-controlled or contained quotes/shell metacharacters.
+**Learning:** Even internal file paths (`path.join` with `options.workspace`) shouldn't be blindly trusted to shell execution (`execSync` or `spawn` with `shell: true`), as quotes or shell metacharacters could still technically cause escaping depending on OS path characteristics or upstream workspace configuration.
+**Prevention:** Use `spawnSync` (or `spawn`) with an explicit argument array (`["--check", tempFile]`) and avoid shell execution. For Node scripts, invoke `process.execPath` explicitly instead of depending on `node` in the PATH string.
