@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -139,7 +139,8 @@ export function reconcile(options: ReconcileOptions): ReconcileResult {
   fs.writeFileSync(tempFile, extractedCode, "utf8");
 
   try {
-    execSync(`node --check "${tempFile}"`, { stdio: "pipe" });
+    const checkResult = spawnSync(process.execPath, ["--check", tempFile], { stdio: "pipe" });
+    if (checkResult.error || checkResult.status !== 0) { throw checkResult.error || new Error((checkResult.stderr || "").toString()); }
     log.audit("Syntax check passed");
   } catch (err) {
     const stderr =
