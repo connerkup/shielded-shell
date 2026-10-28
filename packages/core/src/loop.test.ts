@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -173,12 +173,12 @@ describe("ledger benchmark e2e", () => {
   it("reconcile passes validator for correct ledger implementation", () => {
     const dir = setupWorkspace();
     const mergeTarget = path.join(dir, "auth_service.js");
-    execSync(`node "${fixturePath("mock-dev-ledger.mjs")}" "${path.join(dir, "developer_output.json")}"`, {
-      stdio: "pipe",
-    });
-    execSync(`node "${fixturePath("mock-audit-pass.mjs")}" "${path.join(dir, "auditor_output.json")}"`, {
-      stdio: "pipe",
-    });
+
+    let res = spawnSync(process.execPath, [fixturePath("mock-dev-ledger.mjs"), path.join(dir, "developer_output.json")], { stdio: "pipe" });
+    if (res.status !== 0) throw new Error("Mock dev ledger failed");
+
+    res = spawnSync(process.execPath, [fixturePath("mock-audit-pass.mjs"), path.join(dir, "auditor_output.json")], { stdio: "pipe" });
+    if (res.status !== 0) throw new Error("Mock audit pass failed");
 
     const result = reconcile({
       workspace: dir,
