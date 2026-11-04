@@ -72,6 +72,7 @@ Report issues: [bug report template](https://github.com/connerkup/shielded-shell
 | Command | Purpose |
 | --- | --- |
 | `shieldedshell init` | Create `shield.yaml` policy in the current directory |
+| `shieldedshell doctor` | Check policy file + which loop engines are on PATH / ready |
 | `shieldedshell run <cmd...>` | Run a command in a sandboxed workspace with intercept logging |
 | `shieldedshell shell` | Interactive shell bound to workspace + overlay |
 | `shieldedshell verify --type ledger\|routing` | Static interval / Datalog safety checks |
@@ -103,6 +104,7 @@ shielded-shell/
 ├── prompts/           Default agent prompts (also bundled in core on npm)
 ├── bounded-solvers-rs/ Rust reference solvers (optional fast path)
 ├── bounded_solvers.js  Legacy JS solvers (reference)
+├── website/            Astro + Starlight docs site (shieldedshell.com)
 ├── docs/               Architecture and product specs
 └── examples/shield.yaml
 ```

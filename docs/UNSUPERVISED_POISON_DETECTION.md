@@ -221,7 +221,7 @@ Static analysis cannot catch factually incorrect API integrations or wrong netwo
 
 ### 6.3 Local Reference Library Verification
 Agents are vulnerable to reading outdated online tutorials or using cached, obsolete knowledge.
-*   **The Check:** The workspace maintains a local read-only knowledge base (`reference/` or `META_DOCS/`) containing authoritative configurations, schemas, and policy definitions.
+*   **The Check:** The workspace maintains a local read-only knowledge base (`reference/` or `docs/meta/`) containing authoritative configurations, schemas, and policy definitions.
 *   **The Action:** The reconciler runs a cross-reference agent that compares the developer's assumptions against local reference files. If the developer assumes a partner API supports a feature that our local partner reference docs explicitly deny, the run is flagged as a factual contradiction.
 
 ---
