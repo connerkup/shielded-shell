@@ -13,7 +13,7 @@ sandbox:
   allow_network: false
   allowed_domains: []
   max_memory_mb: 256
-  cpu_timeout_ms: 300000
+  cpu_timeout_ms: 30000
   overlay_enabled: true
 
 invariants:
@@ -46,7 +46,7 @@ paths:
 | `allow_network` | `false` | Network for sandboxed `run` (not agent loop) |
 | `allowed_domains` | `[]` | Allowlist when network is on |
 | `max_memory_mb` | `256` | Memory hint for policy |
-| `cpu_timeout_ms` | `300000` | Timeout for sandboxed commands (5 min) |
+| `cpu_timeout_ms` | `30000` | Timeout for sandboxed commands (30 s) |
 | `overlay_enabled` | `true` | Copy-on-write overlay |
 
 Agent loop runs use at least **900000 ms** (15 min) regardless of this value.

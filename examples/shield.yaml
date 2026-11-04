@@ -6,7 +6,7 @@ sandbox:
   allow_network: false
   allowed_domains: []
   max_memory_mb: 256
-  cpu_timeout_ms: 300000
+  cpu_timeout_ms: 30000
   overlay_enabled: true
 
 invariants:
