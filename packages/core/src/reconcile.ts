@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -139,7 +139,8 @@ export function reconcile(options: ReconcileOptions): ReconcileResult {
   fs.writeFileSync(tempFile, extractedCode, "utf8");
 
   try {
-    execSync(`node --check "${tempFile}"`, { stdio: "pipe" });
+    // 🛡️ Sentinel: Fix command injection vulnerability by using execFileSync instead of string-based execSync.
+    execFileSync(process.execPath, ["--check", tempFile], { stdio: "pipe" });
     log.audit("Syntax check passed");
   } catch (err) {
     const stderr =
