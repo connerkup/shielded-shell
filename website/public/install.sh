@@ -68,7 +68,7 @@ if command -v shieldedshell >/dev/null 2>&1; then
     echo -e "  ${BOLD}cd your-project${RESET}"
     echo -e "  ${BOLD}shieldedshell init${RESET}           # Initialize zero-trust policy"
     echo -e "  ${BOLD}shieldedshell run --ephemeral claude${RESET} # Run agent in ephemeral CoW overlay"
-    echo -e "  ${BOLD}shieldedshell loop --dev claude --audit codellama --goal \"Refactor auth\"${RESET}"
+    echo -e "  ${BOLD}shieldedshell loop --dev claude --audit cline --goal \"Refactor auth\"${RESET}"
     echo -e "  ${BOLD}shieldedshell acob${RESET}           # View 4-Tier ACOB Containment scorecard\n"
 else
     echo -e "${GREEN}✓ Package downloaded.${RESET} Run via npx:"

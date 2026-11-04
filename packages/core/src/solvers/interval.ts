@@ -3,7 +3,7 @@ export class Interval {
   readonly max: number;
 
   constructor(min: number, max: number) {
-    if (min > max) {
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
       throw new Error(`Invalid interval bounds: [${min}, ${max}]`);
     }
     this.min = min;
@@ -12,7 +12,12 @@ export class Interval {
 
   static from(value: number | [number, number] | Interval): Interval {
     if (value instanceof Interval) return value;
-    if (Array.isArray(value)) return new Interval(value[0], value[1]);
+    if (Array.isArray(value)) {
+      if (value.length !== 2) {
+        throw new Error(`Invalid interval bounds: expected 2-element array, got length ${value.length}`);
+      }
+      return new Interval(value[0], value[1]);
+    }
     return new Interval(value, value);
   }
 
@@ -66,6 +71,9 @@ export function analyzeLedgerSafety(
   for (let idx = 0; idx < transfers.length; idx++) {
     const tx = transfers[idx];
     const amount = Interval.from(tx.amount);
+    if (amount.min < 0) {
+      throw new Error(`Invalid transfer amount: ${amount} (must be non-negative)`);
+    }
     const fromBal = balances[tx.from] ?? new Interval(0, 0);
     const toBal = balances[tx.to] ?? new Interval(0, 0);
     const newFrom = fromBal.subtract(amount);

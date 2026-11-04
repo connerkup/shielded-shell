@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command } from "commander";
+import { Command, InvalidArgumentError } from "commander";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -25,7 +25,10 @@ const program = new Command();
 program
   .name("shieldedshell")
   .description("Zero-trust local safety harness for CLI coding agents")
-  .version("0.1.0");
+  .version("0.1.0")
+  .enablePositionalOptions()
+  .option("-d, --dir <path>", "Workspace directory")
+  .option("-c, --config <path>", "Path to shield.yaml");
 
 program
   .command("init")
@@ -45,26 +48,35 @@ program
   .command("run")
   .description("Run a command inside a sandboxed workspace (use -- before args with flags)")
   .argument("[command...]", "Command and arguments")
-  .option("-d, --dir <path>", "Workspace directory", process.cwd())
+  .passThroughOptions()
+  .option("-d, --dir <path>", "Workspace directory")
   .option("-c, --config <path>", "Path to shield.yaml")
   .option("--no-overlay", "Disable copy-on-write overlay")
   .option("--ephemeral", "Run in ephemeral scratchpad overlay (rolls back changes)")
-  .option("-t, --timeout <ms>", "Execution timeout in milliseconds", (val) => parseInt(val, 10))
+  .option("-t, --timeout <ms>", "Execution timeout in milliseconds", parsePositiveInt)
   .option("--anti-spoof", "Require anti-spoof assertion verification token")
   .allowUnknownOption()
   .allowExcessArguments()
   .action(
     async (
       commandParts: string[],
-      opts: {
-        dir: string;
+      localOpts: {
+        dir?: string;
         config?: string;
         overlay?: boolean;
         ephemeral?: boolean;
         timeout?: number;
         antiSpoof?: boolean;
       },
+      cmd: Command,
     ) => {
+      const globalOpts = program.opts<{ dir?: string; config?: string }>();
+      const opts = {
+        ...localOpts,
+        dir: localOpts.dir ?? globalOpts.dir ?? process.cwd(),
+        config: localOpts.config ?? globalOpts.config,
+      };
+      void cmd;
       const argv = process.argv;
       const runIndex = argv.indexOf("run");
       let command = commandParts;
@@ -329,22 +341,50 @@ program.parseAsync(process.argv).catch((err: unknown) => {
   process.exit(1);
 });
 
+function parsePositiveInt(val: string): number {
+  if (!/^\d+$/.test(val)) {
+    throw new InvalidArgumentError("--timeout must be a positive integer");
+  }
+  const n = Number(val);
+  if (!Number.isSafeInteger(n) || n <= 0) {
+    throw new InvalidArgumentError("--timeout must be a positive integer");
+  }
+  return n;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function readJsonObject(inline?: string, filePath?: string): Record<string, unknown> {
+  let parsed: unknown;
   if (filePath) {
-    return JSON.parse(fs.readFileSync(path.resolve(filePath), "utf8")) as Record<string, unknown>;
+    parsed = JSON.parse(fs.readFileSync(path.resolve(filePath), "utf8"));
+  } else if (inline) {
+    parsed = JSON.parse(inline);
+  } else {
+    throw new Error("Missing required JSON input (use inline flag or --file-*)");
   }
-  if (inline) {
-    return JSON.parse(inline) as Record<string, unknown>;
+  if (!isPlainObject(parsed)) {
+    throw new Error("Expected a JSON object");
   }
-  throw new Error("Missing required JSON input (use inline flag or --file-*)");
+  return parsed;
 }
 
 function readJsonArray(inline?: string, filePath?: string): unknown[] {
+  let parsed: unknown;
   if (filePath) {
-    return JSON.parse(fs.readFileSync(path.resolve(filePath), "utf8")) as unknown[];
+    parsed = JSON.parse(fs.readFileSync(path.resolve(filePath), "utf8"));
+  } else if (inline) {
+    parsed = JSON.parse(inline);
+  } else {
+    throw new Error("Missing required JSON input (use inline flag or --file-*)");
   }
-  if (inline) {
-    return JSON.parse(inline) as unknown[];
+  if (!Array.isArray(parsed)) {
+    throw new Error("Expected a JSON array");
   }
-  throw new Error("Missing required JSON input (use inline flag or --file-*)");
+  if (!parsed.every(isPlainObject)) {
+    throw new Error("Expected every array element to be a JSON object");
+  }
+  return parsed;
 }

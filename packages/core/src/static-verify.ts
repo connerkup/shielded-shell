@@ -45,9 +45,24 @@ function parseBracedBlocks(text: string): string[] {
   return results;
 }
 
-function parseBracketBlock(text: string): string | null {
-  const match = /\[[\s\S]*?\]/.exec(text);
-  return match?.[0] ?? null;
+export function parseBracketBlock(text: string): string | null {
+  let start: number | null = null;
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "[") {
+      if (depth === 0) start = i;
+      depth += 1;
+    } else if (ch === "]") {
+      if (depth > 0) {
+        depth -= 1;
+        if (depth === 0 && start !== null) {
+          return text.slice(start, i + 1);
+        }
+      }
+    }
+  }
+  return null;
 }
 
 function verifyLedgerBenchmark(
