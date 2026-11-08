@@ -1,7 +1,7 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 function run(command) {
-  execSync(command, { stdio: "inherit", shell: true });
+  execFileSync(command, { stdio: "inherit", shell: true });
 }
 
 if (process.env.CF_PAGES === "1") {
